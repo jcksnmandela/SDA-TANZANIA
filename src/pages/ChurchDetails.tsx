@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { MapPin, Phone, Clock, Users, Bell, Tv, ArrowLeft, Navigation, Heart, Share2, Loader2, Shield, FileText, FileSpreadsheet, Database, Eye } from "lucide-react";
+import { MapPin, Phone, Clock, Users, Bell, Tv, ArrowLeft, Navigation, Heart, Share2, Loader2, Shield, FileText, FileSpreadsheet, Database, Eye, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { cn, formatDate } from "../lib/utils";
 import { toast } from "sonner";
@@ -49,10 +49,14 @@ export default function ChurchDetails() {
   const [activeTab, setActiveTab] = useState<"services" | "ministers" | "announcements" | "members" | "users" | "livestreams">("services");
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
   const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [modalTab, setModalTab] = useState<"services" | "ministers" | "announcements" | "members" | "users" | "livestreams" | null>(null);
+  const [modalFilteredData, setModalFilteredData] = useState<any[]>([]);
 
   const handleSearch = () => {
+    const tabToFilter = showModal ? modalTab : activeTab;
     let data: any[] = [];
-    switch (activeTab) {
+    switch (tabToFilter) {
       case "services": data = services; break;
       case "ministers": data = ministers; break;
       case "announcements": data = announcements; break;
@@ -68,29 +72,42 @@ export default function ChurchDetails() {
       if (dateRange.end && itemDate > dateRange.end) matchesDate = false;
       return matchesDate;
     });
-    setFilteredData(filtered);
+
+    if (showModal) {
+      setModalFilteredData(filtered);
+    } else {
+      setFilteredData(filtered);
+    }
   };
+
+  useEffect(() => {
+    if (showModal && modalTab) {
+      handleSearch();
+    }
+  }, [showModal, modalTab]);
 
   const exportToPDF = () => {
     const doc = new jsPDF();
-    const data = filteredData.length > 0 ? filteredData : [];
+    const tab = (showModal ? modalTab : activeTab) || "report";
+    const data = showModal ? modalFilteredData : (filteredData.length > 0 ? filteredData : []);
     if (data.length === 0) { toast.error("No data to export"); return; }
     
     autoTable(doc, {
       head: [Object.keys(data[0])],
       body: data.map(item => Object.values(item)),
     });
-    doc.save(`${activeTab}_report.pdf`);
+    doc.save(`${tab}_report.pdf`);
   };
 
   const exportToExcel = () => {
-    const data = filteredData.length > 0 ? filteredData : [];
+    const tab = (showModal ? modalTab : activeTab) || "report";
+    const data = showModal ? modalFilteredData : (filteredData.length > 0 ? filteredData : []);
     if (data.length === 0) { toast.error("No data to export"); return; }
     
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, activeTab);
-    XLSX.writeFile(wb, `${activeTab}_report.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, tab);
+    XLSX.writeFile(wb, `${tab}_report.xlsx`);
   };
 
   const canViewMembers = profile?.role === "admin" || 
@@ -209,6 +226,50 @@ export default function ChurchDetails() {
             <p className="text-slate-600 text-sm leading-relaxed">{church.address}</p>
           </div>
 
+          {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 py-6 border-y border-slate-100">
+              {[
+                { id: "services", icon: Clock, label: "Services", count: services.length },
+                { id: "ministers", icon: Users, label: "Ministers", count: ministers.length },
+                { id: "announcements", icon: Bell, label: "News", count: announcements.length },
+                { id: "livestreams", icon: Tv, label: "Live", count: livestreams.length },
+                { id: "members", icon: Users, label: "Members", count: members.length },
+                { id: "users", icon: Users, label: "Users", count: users.length },
+              ].map((module) => (
+                <div key={module.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center">
+                      <module.icon size={20} />
+                    </div>
+                    <span className="text-xl font-bold text-slate-800">{module.count}</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm">{module.label}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Records</p>
+                  </div>
+                  <div className="flex flex-col gap-2 mt-2">
+                    <button
+                      onClick={() => {
+                        setModalTab(module.id as any);
+                        setShowModal(true);
+                        setModalFilteredData([]);
+                      }}
+                      className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-blue-100 transition-all"
+                    >
+                      <Eye size={14} /> View Information
+                    </button>
+                    <button
+                      onClick={() => navigate(`/admin?tab=${module.id === 'announcements' ? 'announcements' : module.id}&churchId=${id}`)}
+                      className="w-full py-2 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-emerald-100 transition-all"
+                    >
+                      <Database size={14} /> Manage Data
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="border-b border-slate-100">
             <div className="flex flex-wrap items-center gap-4 py-4">
               <div className="flex items-center gap-2">
@@ -259,9 +320,21 @@ export default function ChurchDetails() {
                       <p className="text-emerald-700 text-xs font-bold mt-1">{service.schedule}</p>
                       <p className="text-slate-500 text-xs mt-2">{service.description}</p>
                     </div>
-                    <div className="flex gap-1">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information"><Eye size={16} /></button>
-                      <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <button 
+                        onClick={() => toast.info(`Viewing details for ${service.name}`)}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
+                      >
+                        <Eye size={14} /> View Info
+                      </button>
+                      {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
+                        <button 
+                          onClick={() => navigate(`/admin?tab=services&churchId=${id}`)}
+                          className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
+                        >
+                          <Database size={14} /> Manage
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -287,9 +360,21 @@ export default function ChurchDetails() {
                           <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mt-0.5">{minister.role}</p>
                         </div>
                       </div>
-                      <div className="flex gap-1">
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information"><Eye size={16} /></button>
-                        <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <button 
+                          onClick={() => toast.info(`Viewing details for ${minister.name}`)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
+                        >
+                          <Eye size={14} /> View Info
+                        </button>
+                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
+                          <button 
+                            onClick={() => navigate(`/admin?tab=ministers&churchId=${id}`)}
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
+                          >
+                            <Database size={14} /> Manage
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -317,9 +402,21 @@ export default function ChurchDetails() {
                           {member.status}
                         </span>
                       </div>
-                      <div className="flex gap-1">
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information"><Eye size={16} /></button>
-                        <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <button 
+                          onClick={() => toast.info(`Viewing details for ${member.fullName}`)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
+                        >
+                          <Eye size={14} /> View Info
+                        </button>
+                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
+                          <button 
+                            onClick={() => navigate(`/admin?tab=members&churchId=${id}`)}
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
+                          >
+                            <Database size={14} /> Manage
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -342,9 +439,21 @@ export default function ChurchDetails() {
                         <p className="text-slate-500 text-xs mt-1">{user.email}</p>
                         <p className="text-[10px] text-emerald-600 font-bold uppercase mt-2">{user.role.replace('_', ' ')}</p>
                       </div>
-                      <div className="flex gap-1">
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information"><Eye size={16} /></button>
-                        <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <button 
+                          onClick={() => toast.info(`Viewing details for ${user.fullName}`)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
+                        >
+                          <Eye size={14} /> View Info
+                        </button>
+                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
+                          <button 
+                            onClick={() => navigate(`/admin?tab=users&churchId=${id}`)}
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
+                          >
+                            <Database size={14} /> Manage
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -374,9 +483,21 @@ export default function ChurchDetails() {
                           {formatDate(ann.date)}
                         </p>
                       </div>
-                      <div className="flex gap-1">
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information"><Eye size={16} /></button>
-                        <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <button 
+                          onClick={() => toast.info(`Viewing details for ${ann.title}`)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
+                        >
+                          <Eye size={14} /> View Info
+                        </button>
+                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
+                          <button 
+                            onClick={() => navigate(`/admin?tab=announcements&churchId=${id}`)}
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
+                          >
+                            <Database size={14} /> Manage
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -414,9 +535,21 @@ export default function ChurchDetails() {
                           Watch Stream
                         </a>
                       </div>
-                      <div className="flex gap-1">
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information"><Eye size={16} /></button>
-                        <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <button 
+                          onClick={() => toast.info(`Viewing details for ${live.title}`)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
+                        >
+                          <Eye size={14} /> View Info
+                        </button>
+                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
+                          <button 
+                            onClick={() => navigate(`/admin?tab=livestreams&churchId=${id}`)}
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
+                          >
+                            <Database size={14} /> Manage
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -432,6 +565,117 @@ export default function ChurchDetails() {
           </div>
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in duration-200">
+            <button 
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 w-10 h-10 bg-white shadow-md text-slate-500 rounded-full flex items-center justify-center hover:bg-slate-50 transition-all z-10 border border-slate-100"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 capitalize">{modalTab} Information</h2>
+                <p className="text-sm text-slate-500">View and export {modalTab} data</p>
+              </div>
+              <div className="flex gap-2 mr-12">
+                <button onClick={exportToPDF} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-900 transition-all">
+                  <FileText size={16} /> Export PDF
+                </button>
+                <button onClick={exportToExcel} className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-emerald-800 transition-all">
+                  <FileSpreadsheet size={16} /> Export Excel
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-6 flex flex-wrap items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Start Date</label>
+                    <input type="date" className="p-2 border rounded-lg text-sm" onChange={(e) => setDateRange({...dateRange, start: e.target.value})} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">End Date</label>
+                    <input type="date" className="p-2 border rounded-lg text-sm" onChange={(e) => setDateRange({...dateRange, end: e.target.value})} />
+                  </div>
+                  <button 
+                    onClick={handleSearch} 
+                    className="px-6 py-2 bg-emerald-700 text-white rounded-lg text-sm font-bold mt-4"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {(modalFilteredData.length > 0 ? modalFilteredData : (
+                  modalTab === "services" ? services :
+                  modalTab === "ministers" ? ministers :
+                  modalTab === "announcements" ? announcements :
+                  modalTab === "members" ? members :
+                  modalTab === "users" ? users :
+                  modalTab === "livestreams" ? livestreams : []
+                )).map((item: any) => (
+                  <div key={item.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    {modalTab === "services" && (
+                      <div>
+                        <h4 className="font-bold text-slate-800">{item.name}</h4>
+                        <p className="text-emerald-700 text-xs font-bold">{item.schedule}</p>
+                        <p className="text-slate-500 text-xs mt-1">{item.description}</p>
+                      </div>
+                    )}
+                    {modalTab === "ministers" && (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center">
+                          <Users size={16} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-sm">{item.name}</h4>
+                          <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">{item.role}</p>
+                        </div>
+                      </div>
+                    )}
+                    {modalTab === "members" && (
+                      <div>
+                        <h4 className="font-bold text-slate-800">{item.fullName}</h4>
+                        <p className="text-slate-500 text-xs">{item.phone || "No phone"}</p>
+                        <span className="inline-block text-[10px] px-2 py-0.5 rounded-full font-bold uppercase mt-2 bg-emerald-100 text-emerald-700">
+                          {item.status}
+                        </span>
+                      </div>
+                    )}
+                    {modalTab === "users" && (
+                      <div>
+                        <h4 className="font-bold text-slate-800">{item.fullName}</h4>
+                        <p className="text-slate-500 text-xs">{item.email}</p>
+                        <p className="text-[10px] text-emerald-600 font-bold uppercase mt-1">{item.role?.replace('_', ' ')}</p>
+                      </div>
+                    )}
+                    {modalTab === "announcements" && (
+                      <div>
+                        <h4 className="font-bold text-slate-800">{item.title}</h4>
+                        <p className="text-slate-600 text-sm mt-1">{item.content || item.description}</p>
+                        <p className="text-[10px] text-slate-400 mt-2">{formatDate(item.date)}</p>
+                      </div>
+                    )}
+                    {modalTab === "livestreams" && (
+                      <div>
+                        <h4 className="font-bold text-slate-800">{item.title || item.url}</h4>
+                        <p className="text-slate-500 text-xs">{item.description || item.status}</p>
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs font-bold mt-2 block">Watch Stream</a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

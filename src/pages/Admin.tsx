@@ -6,7 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../firebase";
 import firebaseConfig from "../../firebase-applet-config.json";
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye } from "lucide-react";
 import { cn, formatDate } from "../lib/utils";
@@ -20,7 +20,24 @@ import { Link } from "react-router-dom";
 export default function Admin() {
   const { profile, isAdmin, isChurchAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"churches" | "users" | "members" | "services" | "ministers" | "announcements" | "livestreams" | "settings">("churches");
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const churchId = searchParams.get("churchId");
+    
+    if (tab) {
+      const validTabs = ["churches", "users", "members", "services", "ministers", "announcements", "livestreams", "settings"];
+      if (validTabs.includes(tab)) {
+        setActiveTab(tab as any);
+      }
+    }
+    
+    if (churchId) {
+      setSelectedChurchFilter(churchId);
+    }
+  }, [searchParams]);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
   const [featureFilter, setFeatureFilter] = useState("");
