@@ -28,6 +28,7 @@ export default function Nearby() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [maxDistance, setMaxDistance] = useState<number>(5); // Default 5KM
 
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
@@ -90,16 +91,37 @@ export default function Nearby() {
       ...church,
       distance: userLocation ? calculateDistance(userLocation.lat, userLocation.lng, church.location.lat, church.location.lng) : undefined
     }))
+    .filter(church => church.distance === undefined || church.distance <= maxDistance)
     .sort((a, b) => (a.distance || 0) - (b.distance || 0));
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 pb-20">
       <div className="bg-emerald-800 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
         <div className="relative z-10">
           <h2 className="text-2xl font-bold">Nearby Churches</h2>
           <p className="text-emerald-100 text-sm opacity-80">Find the closest SDA church to you</p>
         </div>
         <Compass size={80} className="absolute -right-4 -bottom-4 text-emerald-700/30 rotate-12" />
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-slate-800 text-sm">Search Radius</h3>
+          <span className="text-emerald-700 font-bold text-sm bg-emerald-50 px-3 py-1 rounded-full">{maxDistance} KM</span>
+        </div>
+        <input 
+          type="range" 
+          min="1" 
+          max="100" 
+          value={maxDistance} 
+          onChange={(e) => setMaxDistance(parseInt(e.target.value))}
+          className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+        />
+        <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+          <span>1 KM</span>
+          <span>50 KM</span>
+          <span>100 KM</span>
+        </div>
       </div>
 
       {error && (
@@ -166,7 +188,9 @@ export default function Nearby() {
             </div>
           )) : (
             <div className="text-center py-20 text-slate-400">
-              <p>No churches found in our database yet.</p>
+              <Compass size={48} className="mx-auto mb-4 opacity-20" />
+              <p className="font-medium">No churches found within {maxDistance} KM.</p>
+              <p className="text-xs mt-1">Try increasing your search radius.</p>
             </div>
           )}
         </div>
