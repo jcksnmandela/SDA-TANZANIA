@@ -44,6 +44,7 @@ export default function Admin() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showReportOptions, setShowReportOptions] = useState(false);
   const [selectedChurchFilter, setSelectedChurchFilter] = useState<string>("");
+  const [userTypeFilter, setUserTypeFilter] = useState<string>("all");
   const [loading, setLoading] = useState(false);
 
   // Form states
@@ -113,6 +114,18 @@ export default function Admin() {
               </option>
             ))}
           </select>
+          {feature === 'users' && (
+            <select
+              className="p-3 bg-white border border-emerald-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 min-w-[200px] font-bold text-slate-700"
+              value={userTypeFilter}
+              onChange={(e) => setUserTypeFilter(e.target.value)}
+            >
+              <option value="all">All Roles</option>
+              <option value="online_user">Online Users</option>
+              <option value="church_admin">Church Admins</option>
+              <option value="church_end_user">Church End Users</option>
+            </select>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-emerald-600 uppercase">Start Date</label>
             <input
@@ -158,10 +171,18 @@ export default function Admin() {
 
       if (isAdmin) {
         if (feature === 'users') {
-          if (selectedChurchFilter === "") {
-            return matchesSearch && matchesDate && item.role === 'admin';
+          let matchesUserType = true;
+          if (userTypeFilter !== 'all') {
+            matchesUserType = item.role === userTypeFilter;
           }
-          return matchesSearch && matchesDate && item.churchId === selectedChurchFilter;
+          
+          if (selectedChurchFilter === "") {
+            if (userTypeFilter === 'all') {
+              return matchesSearch && matchesDate && item.role === 'admin';
+            }
+            return matchesSearch && matchesDate && matchesUserType;
+          }
+          return matchesSearch && matchesDate && item.churchId === selectedChurchFilter && matchesUserType;
         }
         
         if (selectedChurchFilter === "") return false;
@@ -219,18 +240,6 @@ export default function Admin() {
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.LIST, "churches");
-      }
-
-      try {
-        // Fetch Users
-        let usersQuery = query(collection(db, "users"));
-        if (!isAdmin && isChurchAdmin && profile?.churchId) {
-          usersQuery = query(collection(db, "users"), where("churchId", "==", profile.churchId));
-        }
-        const usersSnap = await getDocs(usersQuery);
-        setUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "users");
       }
 
       try {
@@ -295,6 +304,23 @@ export default function Admin() {
     };
     fetchData();
   }, [isAdmin, isChurchAdmin, authLoading, profile?.churchId]);
+
+  useEffect(() => {
+    if (authLoading || (!isAdmin && !isChurchAdmin)) return;
+
+    let usersQuery = query(collection(db, "users"));
+    if (!isAdmin && isChurchAdmin && profile?.churchId) {
+      usersQuery = query(collection(db, "users"), where("churchId", "==", profile.churchId));
+    }
+
+    const unsub = onSnapshot(usersQuery, (usersSnap) => {
+      setUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "users");
+    });
+
+    return () => unsub();
+  }, [authLoading, isAdmin, isChurchAdmin, profile?.churchId]);
 
   const regions = [
     "Arusha", "Dar es Salaam", "Dodoma", "Geita", "Iringa", "Kagera", "Katavi", "Kigoma", "Kilimanjaro", "Lindi", "Manyara", "Mara", "Mbeya", "Morogoro", "Mtwara", "Mwanza", "Njombe", "Pemba North", "Pemba South", "Pwani", "Rukwa", "Ruvuma", "Shinyanga", "Simiyu", "Singida", "Songwe", "Tabora", "Tanga", "Zanzibar North", "Zanzibar South and Central", "Zanzibar West"
@@ -1317,7 +1343,10 @@ export default function Admin() {
                   .map(user => (
                   <div key={user.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
                     <div>
-                      <p className="font-bold text-slate-800">{user.fullName}</p>
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-2 h-2 rounded-full", user.status === 'online' && user.lastSeen && (new Date().getTime() - user.lastSeen.toMillis() < 5 * 60 * 1000) ? 'bg-emerald-500' : 'bg-slate-300')} />
+                        <p className="font-bold text-slate-800">{user.fullName}</p>
+                      </div>
                       <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">{user.role.replace('_', ' ')}</p>
                       {user.churchId && <p className="text-[10px] text-emerald-600">{churches.find(c => c.id === user.churchId)?.name}</p>}
                       {user.createdAt && <p className="text-[9px] text-slate-400 mt-1 italic">Added: {formatDate(user.createdAt)}</p>}

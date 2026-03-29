@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestoreErrorHandler";
 
@@ -12,6 +12,8 @@ interface UserProfile {
   role: "admin" | "church_admin" | "church_end_user" | "online_user";
   churchId?: string; // For church_admin and church_end_user
   mustChangePassword?: boolean;
+  status?: "online" | "offline";
+  lastSeen?: any;
 }
 
 interface AuthContextType {
@@ -40,16 +42,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastUid = useRef<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
+        lastUid.current = user.uid;
         const docRef = doc(db, "users", user.uid);
         try {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            setProfile(docSnap.data() as UserProfile);
+            const profileData = docSnap.data() as UserProfile;
+            setProfile(profileData);
+            await updateDoc(docRef, {
+              status: 'online',
+              lastSeen: serverTimestamp()
+            });
           } else {
             // Create profile if it doesn't exist
             const newProfile: UserProfile = {
@@ -58,6 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: user.email || "",
               favorites: [],
               role: (user.email === "jcksnmandela@gmail.com" || user.email === "admin@sda.tz") ? "admin" : "online_user",
+              status: 'online',
+              lastSeen: serverTimestamp()
             };
             try {
               await setDoc(docRef, newProfile);
@@ -70,6 +81,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
         }
       } else {
+        if (lastUid.current) {
+          try {
+            await updateDoc(doc(db, "users", lastUid.current), {
+              status: 'offline'
+            });
+          } catch (error) {
+            handleFirestoreError(error, OperationType.UPDATE, `users/${lastUid.current}`);
+          }
+        }
+        lastUid.current = null;
         setProfile(null);
       }
       setLoading(false);
