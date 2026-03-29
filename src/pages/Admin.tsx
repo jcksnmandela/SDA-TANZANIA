@@ -159,13 +159,23 @@ export default function Admin() {
       let matchesDate = true;
       if (dateRange.start || dateRange.end) {
         const rawDate = item.createdAt || item.date;
-        const d = new Date(rawDate);
-        if (isNaN(d.getTime())) {
+        if (!rawDate) {
           matchesDate = false;
         } else {
-          const itemDate = d.toISOString().split('T')[0];
-          if (dateRange.start && itemDate < dateRange.start) matchesDate = false;
-          if (dateRange.end && itemDate > dateRange.end) matchesDate = false;
+          let d: Date;
+          if (rawDate && typeof rawDate.toDate === 'function') {
+            d = rawDate.toDate();
+          } else {
+            d = new Date(rawDate);
+          }
+
+          if (isNaN(d.getTime())) {
+            matchesDate = false;
+          } else {
+            const itemDate = d.toISOString().split('T')[0];
+            if (dateRange.start && itemDate < dateRange.start) matchesDate = false;
+            if (dateRange.end && itemDate > dateRange.end) matchesDate = false;
+          }
         }
       }
 
@@ -373,7 +383,14 @@ export default function Admin() {
       
       setChurchForm({ id: "", name: "", region: "", district: "", address: "", lat: "", lng: "", contact: "", image: null });
     } catch (error: any) {
-      toast.error(error.message);
+      console.error("Error in handleAddChurch:", error);
+      if (error.code === 'storage/retry-limit-exceeded') {
+        toast.error("Upload failed: Max retry time exceeded. This is almost always a CORS issue. Please run the 'gsutil cors set' command provided in our chat.");
+      } else if (error.message?.includes('CORS')) {
+        toast.error("Upload failed: CORS error. Please configure your Firebase Storage CORS settings.");
+      } else {
+        toast.error("Failed to update church: " + (error.message || "Unknown error occurred"));
+      }
     } finally {
       setLoading(false);
     }
@@ -1024,7 +1041,7 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {[
                     { id: 'users', label: 'Users', icon: Users, count: users.filter(u => u.churchId === selectedChurchId).length },
                     { id: 'members', label: 'Members', icon: Users, count: members.filter(m => m.churchId === selectedChurchId).length },
@@ -1033,21 +1050,43 @@ export default function Admin() {
                     { id: 'announcements', label: 'News', icon: Bell, count: announcements.filter(a => a.churchId === selectedChurchId).length },
                     { id: 'livestreams', label: 'Live', icon: Tv, count: livestreams.filter(l => l.churchId === selectedChurchId).length },
                   ].map(stat => (
-                    <button
+                    <div
                       key={stat.id}
-                      onClick={() => {
-                        setSelectedChurchFilter(selectedChurchId);
-                        setActiveTab(stat.id as any);
-                        setSelectedChurchId(null);
-                      }}
-                      className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all text-center group"
+                      className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm hover:shadow-md transition-all flex flex-col gap-4"
                     >
-                      <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                        <stat.icon size={20} />
+                      <div className="flex items-start justify-between">
+                        <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center">
+                          <stat.icon size={24} />
+                        </div>
+                        <span className="text-3xl font-bold text-slate-800">{stat.count}</span>
                       </div>
-                      <p className="text-2xl font-bold text-slate-800">{stat.count}</p>
-                      <p className="text-xs text-slate-500 font-bold uppercase">{stat.label}</p>
-                    </button>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-lg">{stat.label}</h4>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Records</p>
+                      </div>
+                      <div className="flex flex-col gap-3 mt-2">
+                        <button
+                          onClick={() => {
+                            setSelectedChurchFilter(selectedChurchId);
+                            setActiveTab(stat.id as any);
+                            setSelectedChurchId(null);
+                          }}
+                          className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-blue-100 transition-all"
+                        >
+                          <Eye size={16} /> View Information
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedChurchFilter(selectedChurchId);
+                            setActiveTab(stat.id as any);
+                            setSelectedChurchId(null);
+                          }}
+                          className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all"
+                        >
+                          <Database size={16} /> Manage Data
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1213,7 +1252,14 @@ export default function Admin() {
                       <p className="font-bold text-slate-800">{church.name}</p>
                       <p className="text-xs text-slate-500">{(church as any).district}, {(church as any).region}</p>
                     </div>
-                    <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                       <Link 
+                        to={`/church/${church.id}`}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Church"
+                      >
+                        <Eye size={16} />
+                      </Link>
                        <button 
                         onClick={() => setChurchForm({
                           id: church.id,
@@ -1226,21 +1272,23 @@ export default function Admin() {
                           contact: (church as any).contact || "",
                           image: null
                         })}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                        title="Edit Church Info"
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Edit Church"
                       >
                         <Database size={16} />
                       </button>
                       {isAdmin && (
                         <button 
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.stopPropagation();
                             if(window.confirm("Delete church?")) {
                               await deleteDoc(doc(db, "churches", church.id));
                               setChurches(churches.filter(c => c.id !== church.id));
                               toast.success("Church deleted");
                             }
                           }}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Church"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -1359,10 +1407,7 @@ export default function Admin() {
                       {user.churchId && <p className="text-[10px] text-emerald-600">{churches.find(c => c.id === user.churchId)?.name}</p>}
                       {user.createdAt && <p className="text-[9px] text-slate-400 mt-1 italic">Added: {formatDate(user.createdAt)}</p>}
                     </div>
-                    <div className="flex gap-1">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information">
-                        <Eye size={16} />
-                      </button>
+                    <div className="flex items-center gap-1">
                       <button 
                         onClick={() => setUserForm({
                           id: user.id,
@@ -1371,22 +1416,22 @@ export default function Admin() {
                           role: user.role,
                           churchId: user.churchId || ""
                         })}
-                        title="Manage Data"
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Edit User"
                       >
                         <Database size={16} />
                       </button>
                       <button 
                         onClick={() => handleResetPassword(user.id)}
                         title="Reset Password"
-                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                       >
                         <Lock size={16} />
                       </button>
                       <button 
                         onClick={() => handleDeleteUser(user.id)}
                         title="Delete User"
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -1513,11 +1558,10 @@ export default function Admin() {
                         {member.status}
                       </span>
                     </div>
-                    <div className="flex gap-1">
-                      <Link to={`/church/${member.churchId}`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information">
-                        <Eye size={16} />
-                      </Link>
-                      <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"
+                    <div className="flex items-center gap-1">
+                      <button 
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Edit Member"
                         onClick={() => setMemberForm({
                           id: member.id,
                           fullName: member.fullName,
@@ -1533,7 +1577,7 @@ export default function Admin() {
                       <button 
                         onClick={() => handleDeleteMember(member.id)}
                         title="Delete Member"
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -1638,12 +1682,21 @@ export default function Admin() {
                       <p className="text-xs text-slate-500">{min.role}</p>
                       {min.createdAt && <p className="text-[9px] text-slate-400 italic">Added: {formatDate(min.createdAt)}</p>}
                     </div>
-                    <div className="flex gap-1">
-                      <Link to={`/church/${min.churchId}`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information">
-                        <Eye size={16} />
-                      </Link>
-                      <button onClick={() => setMinisterForm(min)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
-                      <button onClick={() => handleDeleteMinister(min.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => setMinisterForm(min)} 
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Edit Minister"
+                      >
+                        <Database size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteMinister(min.id)} 
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Minister"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 )))}
@@ -1745,12 +1798,21 @@ export default function Admin() {
                       <p className="text-xs text-slate-500">{service.schedule}</p>
                       {service.createdAt && <p className="text-[9px] text-slate-400 italic">Added: {formatDate(service.createdAt)}</p>}
                     </div>
-                    <div className="flex gap-1">
-                      <Link to={`/church/${service.churchId}`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information">
-                        <Eye size={16} />
-                      </Link>
-                      <button onClick={() => setServiceForm(service)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
-                      <button onClick={() => handleDeleteService(service.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => setServiceForm(service)} 
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Edit Service"
+                      >
+                        <Database size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteService(service.id)} 
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Service"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 )))}
@@ -1851,12 +1913,21 @@ export default function Admin() {
                       <p className="text-xs text-slate-500 line-clamp-1">{ann.description}</p>
                       <p className="text-[9px] text-slate-400 italic">Date: {formatDate(ann.date)}</p>
                     </div>
-                    <div className="flex gap-1">
-                      <Link to={`/church/${ann.churchId}`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information">
-                        <Eye size={16} />
-                      </Link>
-                      <button onClick={() => setAnnouncementForm(ann)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
-                      <button onClick={() => handleDeleteAnnouncement(ann.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => setAnnouncementForm(ann)} 
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Edit News"
+                      >
+                        <Database size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteAnnouncement(ann.id)} 
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete News"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 )))}
@@ -1956,12 +2027,21 @@ export default function Admin() {
                         {ls.status}
                       </span>
                     </div>
-                    <div className="flex gap-1">
-                      <Link to={`/church/${ls.churchId}`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Information">
-                        <Eye size={16} />
-                      </Link>
-                      <button onClick={() => setLivestreamForm(ls)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Manage Data"><Database size={16} /></button>
-                      <button onClick={() => handleDeleteLivestream(ls.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => setLivestreamForm(ls)} 
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Edit Live"
+                      >
+                        <Database size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteLivestream(ls.id)} 
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Live"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 )))}

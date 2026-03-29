@@ -4,7 +4,7 @@ import { doc, getDoc, collection, query, where, getDocs } from "firebase/firesto
 import { db } from "../firebase";
 import { MapPin, Phone, Clock, Users, Bell, Tv, ArrowLeft, Navigation, Heart, Share2, Loader2, Shield, FileText, FileSpreadsheet, Database, Eye, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { cn, formatDate } from "../lib/utils";
+import { cn, formatDate, getChurchImage } from "../lib/utils";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -66,7 +66,19 @@ export default function ChurchDetails() {
     }
 
     const filtered = data.filter(item => {
-      const itemDate = new Date(item.createdAt || item.date || "").toISOString().split('T')[0];
+      const dateValue = item.createdAt || item.date;
+      if (!dateValue) return !dateRange.start && !dateRange.end;
+      
+      let date: Date;
+      if (dateValue && typeof dateValue.toDate === 'function') {
+        date = dateValue.toDate();
+      } else {
+        date = new Date(dateValue);
+      }
+
+      if (isNaN(date.getTime())) return !dateRange.start && !dateRange.end;
+
+      const itemDate = date.toISOString().split('T')[0];
       let matchesDate = true;
       if (dateRange.start && itemDate < dateRange.start) matchesDate = false;
       if (dateRange.end && itemDate > dateRange.end) matchesDate = false;
@@ -167,7 +179,7 @@ export default function ChurchDetails() {
       <div className="max-w-7xl mx-auto md:grid md:grid-cols-2 md:gap-8 md:p-8">
         <div className="relative h-64 md:h-[400px] overflow-hidden md:rounded-3xl shadow-lg">
           <img
-            src={church.images?.[0] || `https://picsum.photos/seed/${church.id}/1200/800`}
+            src={getChurchImage(church.images, church.id)}
             alt={church.name}
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
@@ -196,6 +208,16 @@ export default function ChurchDetails() {
         </div>
 
         <div className="p-4 md:p-0 space-y-6">
+          <div className="flex items-center gap-4 mb-2">
+            <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-all">
+              <ArrowLeft size={20} className="text-slate-600" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">{church.name}</h1>
+              <p className="text-sm text-slate-500 font-medium">Church Management Dashboard</p>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-4">
             <button
               onClick={handleGetDirections}
@@ -226,49 +248,49 @@ export default function ChurchDetails() {
             <p className="text-slate-600 text-sm leading-relaxed">{church.address}</p>
           </div>
 
-          {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 py-6 border-y border-slate-100">
-              {[
-                { id: "services", icon: Clock, label: "Services", count: services.length },
-                { id: "ministers", icon: Users, label: "Ministers", count: ministers.length },
-                { id: "announcements", icon: Bell, label: "News", count: announcements.length },
-                { id: "livestreams", icon: Tv, label: "Live", count: livestreams.length },
-                { id: "members", icon: Users, label: "Members", count: members.length },
-                { id: "users", icon: Users, label: "Users", count: users.length },
-              ].map((module) => (
-                <div key={module.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center">
-                      <module.icon size={20} />
-                    </div>
-                    <span className="text-xl font-bold text-slate-800">{module.count}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 py-8 border-y border-slate-100">
+            {[
+              { id: "services", icon: Clock, label: "Services", count: services.length, public: true },
+              { id: "ministers", icon: Users, label: "Ministers", count: ministers.length, public: true },
+              { id: "announcements", icon: Bell, label: "News", count: announcements.length, public: true },
+              { id: "livestreams", icon: Tv, label: "Live", count: livestreams.length, public: true },
+              { id: "members", icon: Users, label: "Members", count: members.length, public: false },
+              { id: "users", icon: Users, label: "Users", count: users.length, public: false },
+            ].filter(m => m.public || profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id) || (profile?.role === "church_end_user" && profile?.churchId === id)).map((module) => (
+              <div key={module.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col gap-4 hover:shadow-md transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center">
+                    <module.icon size={24} />
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">{module.label}</h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Records</p>
-                  </div>
-                  <div className="flex flex-col gap-2 mt-2">
-                    <button
-                      onClick={() => {
-                        setModalTab(module.id as any);
-                        setShowModal(true);
-                        setModalFilteredData([]);
-                      }}
-                      className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-blue-100 transition-all"
-                    >
-                      <Eye size={14} /> View Information
-                    </button>
+                  <span className="text-3xl font-bold text-slate-800">{module.count}</span>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-lg">{module.label}</h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Records</p>
+                </div>
+                <div className="flex flex-col gap-3 mt-2">
+                  <button
+                    onClick={() => {
+                      setModalTab(module.id as any);
+                      setShowModal(true);
+                      setModalFilteredData([]);
+                    }}
+                    className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-blue-100 transition-all"
+                  >
+                    <Eye size={16} /> View Information
+                  </button>
+                  {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
                     <button
                       onClick={() => navigate(`/admin?tab=${module.id === 'announcements' ? 'announcements' : module.id}&churchId=${id}`)}
-                      className="w-full py-2 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-emerald-100 transition-all"
+                      className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all"
                     >
-                      <Database size={14} /> Manage Data
+                      <Database size={16} /> Manage Data
                     </button>
-                  </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
 
           <div className="border-b border-slate-100">
             <div className="flex flex-wrap items-center gap-4 py-4">
@@ -321,20 +343,6 @@ export default function ChurchDetails() {
                       <p className="text-slate-500 text-xs mt-2">{service.description}</p>
                     </div>
                     <div className="flex flex-col gap-2 shrink-0">
-                      <button 
-                        onClick={() => toast.info(`Viewing details for ${service.name}`)}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
-                      >
-                        <Eye size={14} /> View Info
-                      </button>
-                      {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
-                        <button 
-                          onClick={() => navigate(`/admin?tab=services&churchId=${id}`)}
-                          className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
-                        >
-                          <Database size={14} /> Manage
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -361,20 +369,6 @@ export default function ChurchDetails() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 shrink-0">
-                        <button 
-                          onClick={() => toast.info(`Viewing details for ${minister.name}`)}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
-                        >
-                          <Eye size={14} /> View Info
-                        </button>
-                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
-                          <button 
-                            onClick={() => navigate(`/admin?tab=ministers&churchId=${id}`)}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
-                          >
-                            <Database size={14} /> Manage
-                          </button>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -403,20 +397,6 @@ export default function ChurchDetails() {
                         </span>
                       </div>
                       <div className="flex flex-col gap-2 shrink-0">
-                        <button 
-                          onClick={() => toast.info(`Viewing details for ${member.fullName}`)}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
-                        >
-                          <Eye size={14} /> View Info
-                        </button>
-                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
-                          <button 
-                            onClick={() => navigate(`/admin?tab=members&churchId=${id}`)}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
-                          >
-                            <Database size={14} /> Manage
-                          </button>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -440,20 +420,6 @@ export default function ChurchDetails() {
                         <p className="text-[10px] text-emerald-600 font-bold uppercase mt-2">{user.role.replace('_', ' ')}</p>
                       </div>
                       <div className="flex flex-col gap-2 shrink-0">
-                        <button 
-                          onClick={() => toast.info(`Viewing details for ${user.fullName}`)}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
-                        >
-                          <Eye size={14} /> View Info
-                        </button>
-                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
-                          <button 
-                            onClick={() => navigate(`/admin?tab=users&churchId=${id}`)}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
-                          >
-                            <Database size={14} /> Manage
-                          </button>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -484,20 +450,6 @@ export default function ChurchDetails() {
                         </p>
                       </div>
                       <div className="flex flex-col gap-2 shrink-0">
-                        <button 
-                          onClick={() => toast.info(`Viewing details for ${ann.title}`)}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
-                        >
-                          <Eye size={14} /> View Info
-                        </button>
-                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
-                          <button 
-                            onClick={() => navigate(`/admin?tab=announcements&churchId=${id}`)}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
-                          >
-                            <Database size={14} /> Manage
-                          </button>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -536,20 +488,6 @@ export default function ChurchDetails() {
                         </a>
                       </div>
                       <div className="flex flex-col gap-2 shrink-0">
-                        <button 
-                          onClick={() => toast.info(`Viewing details for ${live.title}`)}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-blue-100 transition-all"
-                        >
-                          <Eye size={14} /> View Info
-                        </button>
-                        {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
-                          <button 
-                            onClick={() => navigate(`/admin?tab=livestreams&churchId=${id}`)}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-emerald-100 transition-all"
-                          >
-                            <Database size={14} /> Manage
-                          </button>
-                        )}
                       </div>
                     </div>
                   ))}

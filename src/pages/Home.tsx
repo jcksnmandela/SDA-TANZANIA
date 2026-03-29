@@ -3,7 +3,7 @@ import { collection, query, getDocs, where } from "firebase/firestore";
 import { Search, Filter, MapPin, Shield } from "lucide-react";
 import { db } from "../firebase";
 import { Link, useNavigate } from "react-router-dom";
-import { cn } from "../lib/utils";
+import { cn, getChurchImage } from "../lib/utils";
 import { useAuth } from "../hooks/useAuth";
 
 interface Church {
@@ -171,7 +171,7 @@ export default function Home() {
               >
                 <div className="aspect-video relative overflow-hidden">
                   <img
-                    src={church.images?.[0] || `https://picsum.photos/seed/${church.id}/800/450`}
+                    src={getChurchImage(church.images, church.id)}
                     alt={church.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     referrerPolicy="no-referrer"
