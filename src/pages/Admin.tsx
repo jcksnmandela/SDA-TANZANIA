@@ -336,22 +336,30 @@ export default function Admin() {
         return;
       }
 
+      console.log("Starting church update/add:", churchForm);
       let imageUrl = "";
       if (churchForm.image) {
+        console.log("Uploading image:", churchForm.image.name);
         const storageRef = ref(storage, `churches/${Date.now()}_${churchForm.image.name}`);
         await uploadBytes(storageRef, churchForm.image);
         imageUrl = await getDownloadURL(storageRef);
+        console.log("Image uploaded, URL:", imageUrl);
       }
 
-      const churchData = {
+      const churchData: any = {
         name: churchForm.name,
         region: churchForm.region,
         district: churchForm.district,
         address: churchForm.address,
         location: { lat: parseFloat(churchForm.lat), lng: parseFloat(churchForm.lng) },
         contact: churchForm.contact,
-        images: imageUrl ? [imageUrl] : [],
       };
+      if (imageUrl) {
+        churchData.images = [imageUrl];
+      } else if (!churchForm.id) {
+        churchData.images = [];
+      }
+      console.log("Church data to save:", churchData);
 
       if (churchForm.id) {
         // Update
@@ -2000,6 +2008,36 @@ export default function Admin() {
                     "absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all",
                     appSettings.publicSignups ? "right-1" : "left-1"
                   )} />
+                </button>
+              </div>
+              <div className="flex justify-between items-center pt-6 border-t border-slate-200">
+                <div>
+                  <p className="font-bold text-slate-800">Bulk Update Church Images</p>
+                  <p className="text-xs text-slate-500">Set all church profile images to SDA logo</p>
+                </div>
+                <button 
+                  onClick={async () => {
+                    if (!window.confirm("Are you sure you want to update all church profile images to the SDA logo?")) return;
+                    setLoading(true);
+                    try {
+                      const logoUrl = "https://share.google/f0PDGt0WkAdZpbbRK";
+                      for (const church of churches) {
+                        await updateDoc(doc(db, "churches", church.id), { images: [logoUrl] });
+                      }
+                      toast.success("All church images updated successfully!");
+                      // Refresh churches list
+                      const churchesSnap = await getDocs(collection(db, "churches"));
+                      setChurches(churchesSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, ...doc.data() })));
+                    } catch (error: any) {
+                      toast.error("Failed to update images: " + error.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={16} /> : "Update All"}
                 </button>
               </div>
             </div>
