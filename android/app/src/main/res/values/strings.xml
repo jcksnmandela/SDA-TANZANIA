@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SDA Tanzania</string>
+    <string name="title_activity_main">SDA Tanzania</string>
+    <string name="package_name">com.sda.tz</string>
+    <string name="custom_url_scheme">com.sda.tz</string>
+</resources>

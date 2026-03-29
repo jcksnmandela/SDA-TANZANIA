@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "favorites": { "type": "array", "items": { "type": "string" } },
+        "role": { "type": "string", "enum": ["admin", "church_admin", "church_end_user", "online_user"] },
+        "churchId": { "type": "string" }
+      },
+      "required": ["uid", "fullName", "email", "role"]
+    },
+    "Member": {
+      "title": "Member",
+      "description": "Church member details",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+      },
+      "required": ["churchId", "fullName", "status"]
+    },
+    "Church": {
+      "title": "Church",
+      "description": "SDA Church details",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "region": { "type": "string" },
+        "district": { "type": "string" },
+        "address": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "contact": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "region", "district", "address", "location"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Church service details",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "name": { "type": "string" },
+        "schedule": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["churchId", "name", "schedule"]
+    },
+    "Minister": {
+      "title": "Minister",
+      "description": "Church minister details",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "contact": { "type": "string" }
+      },
+      "required": ["churchId", "name", "role"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Church announcement",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["churchId", "title", "description", "date"]
+    },
+    "Livestream": {
+      "title": "Livestream",
+      "description": "Church live stream link",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "url": { "type": "string" },
+        "status": { "type": "string", "enum": ["Live", "Offline"] }
+      },
+      "required": ["churchId", "url", "status"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global application configuration",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean" },
+        "publicSignups": { "type": "boolean" }
+      },
+      "required": ["maintenanceMode", "publicSignups"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles" },
+    "/churches/{churchId}": { "schema": "Church", "description": "Church directory" },
+    "/services/{serviceId}": { "schema": "Service", "description": "Church services" },
+    "/ministers/{ministerId}": { "schema": "Minister", "description": "Church ministers" },
+    "/announcements/{announcementId}": { "schema": "Announcement", "description": "Church announcements" },
+    "/livestreams/{livestreamId}": { "schema": "Livestream", "description": "Church live streams" },
+    "/members/{memberId}": { "schema": "Member", "description": "Church members directory" },
+    "/config/global": { "schema": "AppConfig", "description": "Global settings" }
+  }
+}

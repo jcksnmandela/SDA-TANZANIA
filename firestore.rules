@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "jcksnmandela@gmail.com" ||
+        request.auth.token.email == "admin@sda.tz" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isChurchAdmin() {
+      return isAuthenticated() && (
+        isAdmin() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'church_admin'
+        )
+      );
+    }
+
+    function isChurchEndUser() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'church_end_user';
+    }
+
+    function isOnlineUser() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'online_user';
+    }
+
+    function getChurchId() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.churchId : 
+             "none";
+    }
+
+    function isDocInChurch(churchId) {
+      return isAuthenticated() && (
+        isAdmin() || 
+        (isChurchAdmin() && churchId == getChurchId()) ||
+        (isChurchEndUser() && churchId == getChurchId())
+      );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'fullName', 'email', 'favorites', 'role']) &&
+             data.uid is string &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.favorites is list &&
+             data.role in ['admin', 'church_admin', 'church_end_user', 'online_user'] &&
+             (data.role in ['admin', 'online_user'] || (data.keys().hasAll(['churchId']) && data.churchId is string)) &&
+             data.keys().hasOnly(['uid', 'fullName', 'email', 'favorites', 'role', 'churchId', 'mustChangePassword']);
+    }
+
+    function isValidChurch(data) {
+      return data.keys().hasAll(['name', 'region', 'district', 'address', 'location']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.region is string &&
+             data.district is string &&
+             data.address is string &&
+             data.location is map &&
+             data.location.lat is number &&
+             data.location.lng is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin() || (isAuthenticated() && 
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                    resource.data.churchId == getChurchId());
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (
+        (isOwner(userId) && request.resource.data.role == 'online_user') || 
+        isAdmin() || 
+        (isChurchAdmin() && request.resource.data.churchId == getChurchId() && 
+         request.resource.data.role in ['church_admin', 'church_end_user'])
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isOwner(userId) && request.resource.data.role == resource.data.role && isValidUser(request.resource.data)) ||
+        (isChurchAdmin() && resource.data.churchId == getChurchId() && 
+         request.resource.data.role in ['church_admin', 'church_end_user'] && 
+         isValidUser(request.resource.data))
+      );
+      allow delete: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId() && userId != request.auth.uid);
+    }
+
+    match /churches/{churchId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isChurchAdmin() && churchId == getChurchId());
+      allow delete: if isAdmin();
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create: if isAdmin() || (isChurchAdmin() && request.resource.data.churchId == getChurchId());
+      allow update: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+      allow delete: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+    }
+
+    match /ministers/{ministerId} {
+      allow read: if true;
+      allow create: if isAdmin() || (isChurchAdmin() && request.resource.data.churchId == getChurchId());
+      allow update: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+      allow delete: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create: if isAdmin() || (isChurchAdmin() && request.resource.data.churchId == getChurchId());
+      allow update: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+      allow delete: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+    }
+
+    match /livestreams/{livestreamId} {
+      allow read: if true;
+      allow create: if isAdmin() || (isChurchAdmin() && request.resource.data.churchId == getChurchId());
+      allow update: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+      allow delete: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+    }
+
+    match /members/{memberId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.churchId == getChurchId());
+      allow create: if isAdmin() || (isChurchAdmin() && request.resource.data.churchId == getChurchId());
+      allow update: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+      allow delete: if isAdmin() || (isChurchAdmin() && resource.data.churchId == getChurchId());
+    }
+
+    match /config/global {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
