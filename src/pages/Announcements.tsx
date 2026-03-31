@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, getDocs, doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import { Bell, Calendar, MapPin, Loader2, ChevronRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
+import { api } from "../api";
+import { useAuth } from "../hooks/useAuth";
 
 interface Announcement {
   id: string;
@@ -19,21 +20,22 @@ interface Announcement {
 export default function Announcements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { profile } = useAuth();
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const q = query(collection(db, "announcements"), orderBy("date", "desc"));
-        const snap = await getDocs(q);
-        const data = await Promise.all(snap.docs.map(async (d) => {
-          const announcement = { id: d.id, ...d.data() } as Announcement;
-          const churchSnap = await getDoc(doc(db, "churches", announcement.churchId));
+        const announcements = await api.getEntities("announcements");
+        const churches = await api.getChurches();
+        const data = announcements.map((announcement: any) => {
+          const church = churches.find((c: any) => c.id === announcement.churchId);
           return {
             ...announcement,
-            churchName: churchSnap.exists() ? churchSnap.data().name : "Unknown Church"
+            churchName: church ? church.name : "Unknown Church"
           };
-        }));
-        setAnnouncements(data);
+        });
+        setAnnouncements(data.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       } catch (error) {
         console.error("Error fetching announcements:", error);
       } finally {
@@ -90,16 +92,23 @@ export default function Announcements() {
                 <div className="text-slate-600 text-sm line-clamp-3 prose prose-sm prose-emerald">
                   <ReactMarkdown>{announcement.description}</ReactMarkdown>
                 </div>
-                <Link
-                  to={`/church/${announcement.churchId}`}
-                  className="flex items-center justify-between pt-3 border-t border-slate-50 text-emerald-700 text-xs font-bold group"
+                <button
+                  onClick={() => {
+                    if (profile) {
+                      navigate(`/church/${announcement.churchId}`);
+                    } else {
+                      toast.error("Login to Access the Church");
+                      navigate("/auth");
+                    }
+                  }}
+                  className="flex items-center justify-between pt-3 border-t border-slate-50 text-emerald-700 text-xs font-bold group w-full"
                 >
                   <div className="flex items-center gap-1">
                     <MapPin size={14} />
                     Visit Church
                   </div>
                   <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                </Link>
+                </button>
               </div>
             </div>
           )) : (

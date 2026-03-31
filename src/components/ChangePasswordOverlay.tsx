@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, signOut } from "firebase/auth";
-import { doc, updateDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import { useAuth } from "../hooks/useAuth";
 import { Lock, Loader2, LogOut, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { api } from "../api";
 
 export default function ChangePasswordOverlay() {
   const { user } = useAuth();
@@ -46,8 +46,8 @@ export default function ChangePasswordOverlay() {
         await updatePassword(user, newPassword);
       }
       
-      // Update Firestore flag
-      await updateDoc(doc(db, "users", user.uid), {
+      // Update local profile flag
+      await api.updateUserProfile(user.uid, {
         mustChangePassword: false
       });
 
@@ -64,7 +64,7 @@ export default function ChangePasswordOverlay() {
     if (!user || !isAdmin) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", user.uid), {
+      await api.updateUserProfile(user.uid, {
         mustChangePassword: false
       });
       toast.success("Security flag cleared. Welcome, Admin!");

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { auth } from "../firebase";
 import { toast } from "sonner";
 import { ShieldCheck, Lock, User, ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { api } from "../api";
 
 export default function AdminAuth() {
   const [username, setUsername] = useState("");
@@ -37,8 +37,8 @@ export default function AdminAuth() {
             // If still fails and user is 'Jackon', try creating the account (first time setup)
             if (innerErr.code === "auth/user-not-found" || innerErr.code === "auth/invalid-credential") {
                const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminEmail);
-               await setDoc(doc(db, "users", userCredential.user.uid), {
-                 uid: userCredential.user.uid,
+               await api.createUserProfile({
+                 id: userCredential.user.uid,
                  fullName: "Super Admin",
                  email: adminEmail,
                  favorites: [],
@@ -57,13 +57,13 @@ export default function AdminAuth() {
       
       toast.success("Super Admin authenticated!");
       
-      // Ensure Firestore profile has admin role
+      // Ensure local profile has admin role
       if (auth.currentUser) {
-        await setDoc(doc(db, "users", auth.currentUser.uid), {
+        await api.updateUserProfile(auth.currentUser.uid, {
           role: "admin",
           email: adminEmail,
-          uid: auth.currentUser.uid
-        }, { merge: true });
+          id: auth.currentUser.uid
+        });
       }
 
       navigate("/admin");

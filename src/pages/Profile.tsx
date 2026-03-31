@@ -1,13 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { signOut, updateProfile, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import { useAuth } from "../hooks/useAuth";
 import { LogOut, User, Heart, Settings, ChevronRight, Shield, MapPin, Loader2, Mail, Lock, Save, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from "firebase/firestore";
 import { cn } from "../lib/utils";
+import { api } from "../api";
 
 interface Church {
   id: string;
@@ -33,7 +33,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (profile) {
-      setFullName(profile.fullName);
+      setFullName(profile.name);
       setEmail(profile.email);
     }
   }, [profile]);
@@ -43,10 +43,11 @@ export default function Profile() {
       if (!profile?.favorites || profile.favorites.length === 0) return;
       setFetchingFavorites(true);
       try {
-        const data = await Promise.all(profile.favorites.map(async (id) => {
-          const snap = await getDoc(doc(db, "churches", id));
-          return snap.exists() ? { id: snap.id, ...snap.data() } as Church : null;
-        }));
+        const churches = await api.getChurches();
+        const data = profile.favorites.map(id => {
+          const church = churches.find(c => c.id === id);
+          return church || null;
+        });
         setFavorites(data.filter(Boolean) as Church[]);
       } catch (error) {
         console.error("Error fetching favorites:", error);
@@ -60,6 +61,9 @@ export default function Profile() {
 
   const handleLogout = async () => {
     try {
+      if (user) {
+        await api.updateUserProfile(user.uid, { status: 'offline' });
+      }
       await signOut(auth);
       toast.success("Logged out successfully");
       navigate("/auth");
@@ -73,8 +77,8 @@ export default function Profile() {
     if (!user || !profile) return;
     setUpdating(true);
     try {
-      // Update Firestore
-      await updateDoc(doc(db, "users", user.uid), {
+      // Update local profile
+      await api.updateUserProfile(user.uid, {
         fullName,
         email,
       });
@@ -105,8 +109,8 @@ export default function Profile() {
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
       
-      // Update Firestore flag
-      await updateDoc(doc(db, "users", user.uid), {
+      // Update local profile flag
+      await api.updateUserProfile(user.uid, {
         mustChangePassword: false
       });
 
@@ -157,7 +161,7 @@ export default function Profile() {
         
         {!isEditing ? (
           <div className="text-center">
-            <h2 className="text-xl font-bold text-slate-800">{profile?.fullName}</h2>
+            <h2 className="text-xl font-bold text-slate-800">{profile?.name}</h2>
             <p className="text-slate-500 text-sm">{profile?.email}</p>
             <div className="mt-2 inline-block px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-md uppercase tracking-wider">
               {profile?.role}

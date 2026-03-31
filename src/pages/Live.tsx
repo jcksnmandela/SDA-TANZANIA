@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { collection, query, getDocs, doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import { Tv, Play, Loader2, MapPin, Radio } from "lucide-react";
 import ReactPlayer from "react-player";
 const Player = ReactPlayer as any;
 import { cn } from "../lib/utils";
+import { api } from "../api";
 
 interface Livestream {
   id: string;
@@ -22,16 +21,15 @@ export default function Live() {
   useEffect(() => {
     const fetchStreams = async () => {
       try {
-        const q = query(collection(db, "livestreams"));
-        const snap = await getDocs(q);
-        const data = await Promise.all(snap.docs.map(async (d) => {
-          const stream = { id: d.id, ...d.data() } as Livestream;
-          const churchSnap = await getDoc(doc(db, "churches", stream.churchId));
+        const livestreams = await api.getEntities("livestreams");
+        const churches = await api.getChurches();
+        const data = livestreams.map((stream: any) => {
+          const church = churches.find((c: any) => c.id === stream.churchId);
           return {
             ...stream,
-            churchName: churchSnap.exists() ? churchSnap.data().name : "Unknown Church"
+            churchName: church ? church.name : "Unknown Church"
           };
-        }));
+        });
         setStreams(data);
         if (data.length > 0) setActiveStream(data[0]);
       } catch (error) {

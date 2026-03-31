@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { collection, query, getDocs, where } from "firebase/firestore";
-import { Search, Filter, MapPin, Shield } from "lucide-react";
-import { db } from "../firebase";
+import { Search, Filter, MapPin, Shield, ImageIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { cn, getChurchImage } from "../lib/utils";
 import { useAuth } from "../hooks/useAuth";
+import { api } from "../api";
 
 interface Church {
   id: string;
@@ -61,12 +61,7 @@ export default function Home() {
   useEffect(() => {
     const fetchChurches = async () => {
       try {
-        const q = query(collection(db, "churches"));
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Church[];
+        const data = await api.getChurches();
         setChurches(data);
       } catch (error) {
         console.error("Error fetching churches:", error);
@@ -169,13 +164,20 @@ export default function Home() {
                 key={church.id}
                 className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-all active:scale-[0.98]"
               >
-                <div className="aspect-video relative overflow-hidden">
-                  <img
-                    src={getChurchImage(church.images, church.id)}
-                    alt={church.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
-                  />
+                <div className="aspect-video relative overflow-hidden bg-slate-100 flex items-center justify-center">
+                  {church.images && church.images.length > 0 ? (
+                    <img 
+                      src={church.images[0]} 
+                      alt={church.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="text-slate-300 flex flex-col items-center gap-1">
+                      <ImageIcon size={32} strokeWidth={1} />
+                      <span className="text-[8px] font-bold uppercase tracking-widest opacity-50">No Image</span>
+                    </div>
+                  )}
                   <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold text-emerald-800 shadow-sm">
                     SDA CHURCH
                   </div>
@@ -190,12 +192,19 @@ export default function Home() {
                   </p>
                   
                   <div className="mt-4 flex flex-col gap-2">
-                    <Link
-                      to={`/church/${church.id}`}
+                    <button
+                      onClick={() => {
+                        if (profile) {
+                          navigate(`/church/${church.id}`);
+                        } else {
+                          toast.error("Login to Access the Church");
+                          navigate("/auth");
+                        }
+                      }}
                       className="w-full py-2.5 bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-800 transition-all shadow-sm"
                     >
                       View Information
-                    </Link>
+                    </button>
                     
                     {(isAdmin || (isChurchAdmin && profile?.churchId === church.id)) && (
                       <Link

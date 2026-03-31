@@ -1,12 +1,11 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../firebase";
-import { handleFirestoreError, OperationType } from "../lib/firestoreErrorHandler";
+import { auth } from "../firebase";
+import { api } from "../api";
 
 interface UserProfile {
-  uid: string;
-  fullName: string;
+  id: string;
+  name: string;
   email: string;
   favorites: string[];
   role: "admin" | "church_admin" | "church_end_user" | "online_user";
@@ -49,47 +48,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       if (user) {
         lastUid.current = user.uid;
-        const docRef = doc(db, "users", user.uid);
         try {
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const profileData = docSnap.data() as UserProfile;
+          const profileData = await api.getUserProfile(user.uid);
+          if (profileData) {
             setProfile(profileData);
-            await updateDoc(docRef, {
+            await api.updateUserProfile(user.uid, {
               status: 'online',
-              lastSeen: serverTimestamp()
+              lastSeen: new Date().toISOString()
             });
           } else {
             // Create profile if it doesn't exist
             const newProfile: UserProfile = {
-              uid: user.uid,
-              fullName: user.displayName || "User",
+              id: user.uid,
+              name: user.displayName || "User",
               email: user.email || "",
               favorites: [],
               role: (user.email === "jcksnmandela@gmail.com" || user.email === "admin@sda.tz") ? "admin" : "online_user",
               status: 'online',
-              lastSeen: serverTimestamp()
+              lastSeen: new Date().toISOString()
             };
-            try {
-              await setDoc(docRef, newProfile);
-              setProfile(newProfile);
-            } catch (error) {
-              handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
-            }
+            await api.createUserProfile(newProfile);
+            setProfile(newProfile);
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+          console.error("Error fetching/creating profile:", error);
         }
       } else {
-        if (lastUid.current) {
-          try {
-            await updateDoc(doc(db, "users", lastUid.current), {
-              status: 'offline'
-            });
-          } catch (error) {
-            handleFirestoreError(error, OperationType.UPDATE, `users/${lastUid.current}`);
-          }
-        }
         lastUid.current = null;
         setProfile(null);
       }

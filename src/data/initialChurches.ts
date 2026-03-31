@@ -6,7 +6,7 @@ export const initialChurches = [
     address: "Magomeni Mapipa, Dar es Salaam",
     location: { lat: -6.7924, lng: 39.2482 },
     contact: "+255 22 217 0000",
-    images: []
+    images: ["https://picsum.photos/seed/magomeni-church/800/600"]
   },
   {
     name: "Temeke SDA Church",
@@ -15,7 +15,7 @@ export const initialChurches = [
     address: "Temeke Mwisho, Dar es Salaam",
     location: { lat: -6.8541, lng: 39.2714 },
     contact: "+255 22 285 0000",
-    images: []
+    images: ["https://picsum.photos/seed/temeke-church/800/600"]
   },
   {
     name: "Arusha Central SDA Church",
@@ -24,7 +24,7 @@ export const initialChurches = [
     address: "Near Clock Tower, Arusha",
     location: { lat: -3.3731, lng: 36.6853 },
     contact: "+255 27 250 0000",
-    images: []
+    images: ["https://picsum.photos/seed/arusha-church/800/600"]
   },
   {
     name: "Mwanza Central SDA Church",
@@ -33,7 +33,7 @@ export const initialChurches = [
     address: "Kirumba, Mwanza",
     location: { lat: -2.5164, lng: 32.9012 },
     contact: "+255 28 250 0000",
-    images: []
+    images: ["https://picsum.photos/seed/mwanza-church/800/600"]
   },
   {
     name: "Dodoma Central SDA Church",
@@ -42,7 +42,7 @@ export const initialChurches = [
     address: "Area C, Dodoma",
     location: { lat: -6.1722, lng: 35.7481 },
     contact: "+255 26 232 0000",
-    images: []
+    images: ["https://picsum.photos/seed/dodoma-church/800/600"]
   },
   {
     name: "Mburahati SDA Church",
@@ -51,7 +51,7 @@ export const initialChurches = [
     address: "Mburahati, Dar es Salaam",
     location: { lat: -6.8021, lng: 39.2314 },
     contact: "+255 22 240 0000",
-    images: []
+    images: ["https://picsum.photos/seed/mburahati-church/800/600"]
   },
   {
     name: "Njiro SDA Church",
@@ -60,7 +60,7 @@ export const initialChurches = [
     address: "Njiro Hill, Arusha",
     location: { lat: -3.4021, lng: 36.7014 },
     contact: "+255 27 254 0000",
-    images: []
+    images: ["https://picsum.photos/seed/njiro-church/800/600"]
   },
   {
     name: "Morogoro Central SDA Church",
@@ -69,7 +69,7 @@ export const initialChurches = [
     address: "Msamvu, Morogoro",
     location: { lat: -6.8214, lng: 37.6612 },
     contact: "+255 23 260 0000",
-    images: []
+    images: ["https://picsum.photos/seed/morogoro-church/800/600"]
   },
   {
     name: "Mbeya Central SDA Church",
@@ -78,7 +78,7 @@ export const initialChurches = [
     address: "Uyole, Mbeya",
     location: { lat: -8.9094, lng: 33.4608 },
     contact: "+255 25 250 0000",
-    images: []
+    images: ["https://picsum.photos/seed/mbeya-church/800/600"]
   },
   {
     name: "Moshi Central SDA Church",
@@ -87,7 +87,7 @@ export const initialChurches = [
     address: "Moshi Town, Kilimanjaro",
     location: { lat: -3.3406, lng: 37.3403 },
     contact: "+255 27 275 0000",
-    images: []
+    images: ["https://picsum.photos/seed/moshi-church/800/600"]
   },
   {
     name: "Tanga Central SDA Church",
@@ -96,7 +96,7 @@ export const initialChurches = [
     address: "Tanga Town, Tanga",
     location: { lat: -5.0689, lng: 39.0982 },
     contact: "+255 27 264 0000",
-    images: []
+    images: ["https://picsum.photos/seed/tanga-church/800/600"]
   },
   {
     name: "Kigamboni SDA Church",
@@ -105,7 +105,7 @@ export const initialChurches = [
     address: "Kigamboni Ferry, Dar es Salaam",
     location: { lat: -6.8241, lng: 39.3014 },
     contact: "+255 22 282 0000",
-    images: []
+    images: ["https://picsum.photos/seed/kigamboni-church/800/600"]
   },
   {
     name: "Stone Town SDA Church",
@@ -114,7 +114,7 @@ export const initialChurches = [
     address: "Stone Town, Zanzibar",
     location: { lat: -6.1659, lng: 39.2026 },
     contact: "+255 24 223 0000",
-    images: []
+    images: ["https://picsum.photos/seed/zanzibar-church/800/600"]
   },
   {
     name: "Shinyanga Central SDA Church",
@@ -123,7 +123,7 @@ export const initialChurches = [
     address: "Shinyanga Town",
     location: { lat: -3.6619, lng: 33.4225 },
     contact: "+255 28 276 0000",
-    images: []
+    images: ["https://picsum.photos/seed/shinyanga-church/800/600"]
   },
   {
     name: "Tabora Central SDA Church",
@@ -132,7 +132,7 @@ export const initialChurches = [
     address: "Tabora Town",
     location: { lat: -5.0162, lng: 32.8132 },
     contact: "+255 26 260 0000",
-    images: []
+    images: ["https://picsum.photos/seed/tabora-church/800/600"]
   },
   {
     name: "Iringa Central SDA Church",
@@ -141,7 +141,7 @@ export const initialChurches = [
     address: "Iringa Town",
     location: { lat: -7.7731, lng: 35.6991 },
     contact: "+255 26 270 0000",
-    images: []
+    images: ["https://picsum.photos/seed/iringa-church/800/600"]
   },
   {
     name: "Singida Central SDA Church",
@@ -150,7 +150,7 @@ export const initialChurches = [
     address: "Singida Town",
     location: { lat: -4.8167, lng: 34.7500 },
     contact: "+255 26 250 0000",
-    images: []
+    images: ["https://picsum.photos/seed/singida-church/800/600"]
   },
   {
     name: "Musoma Central SDA Church",
@@ -159,6 +159,6 @@ export const initialChurches = [
     address: "Musoma Town",
     location: { lat: -1.5000, lng: 33.8000 },
     contact: "+255 28 262 0000",
-    images: []
+    images: ["https://picsum.photos/seed/musoma-church/800/600"]
   }
 ];

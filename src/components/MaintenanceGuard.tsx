@@ -1,24 +1,28 @@
 import { useState, useEffect } from "react";
-import { db } from "../firebase";
-import { doc, onSnapshot } from "firebase/firestore";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { handleFirestoreError, OperationType } from "../lib/firestoreErrorHandler";
+import { api } from "../api";
 
 export function MaintenanceGuard({ children }: { children: React.ReactNode }) {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const { isAdmin } = useAuth();
 
   useEffect(() => {
-    const path = "config/global";
-    const unsub = onSnapshot(doc(db, "config", "global"), (docSnap) => {
-      if (docSnap.exists()) {
-        setMaintenanceMode(docSnap.data().maintenanceMode);
+    const fetchMaintenanceMode = async () => {
+      try {
+        const config = await api.getEntities("config");
+        const globalConfig = config.find((c: any) => c.id === "global");
+        if (globalConfig) {
+          setMaintenanceMode(globalConfig.maintenanceMode);
+        }
+      } catch (error) {
+        console.error("Error fetching maintenance mode:", error);
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
-    });
-    return () => unsub();
+    };
+    fetchMaintenanceMode();
+    // Optional: poll every 30 seconds
+    const interval = setInterval(fetchMaintenanceMode, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const isAuthPage = window.location.pathname === "/auth" || window.location.pathname === "/admin-login";

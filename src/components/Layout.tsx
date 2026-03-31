@@ -1,12 +1,16 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, MapPin, Bell, Tv, User, Shield } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "../hooks/useAuth";
 import { cn } from "../lib/utils";
 import ChangePasswordOverlay from "./ChangePasswordOverlay";
+import ThemeSwitcher from "./ThemeSwitcher";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { isAdmin, isChurchAdmin, mustChangePassword } = useAuth();
+  const navigate = useNavigate();
+  const { isAdmin, isChurchAdmin, mustChangePassword, profile } = useAuth();
 
   const navItems = [
     { path: "/", icon: Home, label: "Home" },
@@ -21,7 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex flex-col">
       {mustChangePassword && <ChangePasswordOverlay />}
       <header className="bg-emerald-700 text-white p-4 sticky top-0 z-50 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -37,10 +41,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
+              
+              const handleClick = (e: React.MouseEvent) => {
+                if (["/nearby", "/announcements", "/live"].includes(item.path) && !profile) {
+                  e.preventDefault();
+                  toast.error("Login to Access the Church");
+                  navigate("/auth");
+                }
+              };
+
               return (
                 <Link
                   key={item.path}
                   to={item.path}
+                  onClick={handleClick}
                   className={cn(
                     "flex items-center gap-2 text-sm font-medium transition-colors",
                     isActive ? "text-white" : "text-emerald-100 hover:text-white"
@@ -51,6 +65,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+            <div className="flex items-center gap-2">
+              <ThemeSwitcher />
+              <LanguageSwitcher />
+            </div>
           </div>
         </div>
       </header>
@@ -77,10 +95,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
+          
+          const handleClick = (e: React.MouseEvent) => {
+            if (["/nearby", "/announcements", "/live"].includes(item.path) && !profile) {
+              e.preventDefault();
+              toast.error("Login to Access the Church");
+              navigate("/auth");
+            }
+          };
+
           return (
             <Link
               key={item.path}
               to={item.path}
+              onClick={handleClick}
               className={cn(
                 "flex flex-col items-center p-2 rounded-lg transition-colors",
                 isActive ? "text-emerald-700" : "text-slate-500 hover:text-emerald-600"

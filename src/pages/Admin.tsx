@@ -1,21 +1,18 @@
 import { useState, useEffect } from "react";
-import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
-import { collection, addDoc, getDocs, deleteDoc, doc, query, where, setDoc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../firebase";
-import firebaseConfig from "../../firebase-applet-config.json";
+import { api } from "../api";
+import { initialChurches } from "../data/initialChurches";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye } from "lucide-react";
 import { cn, formatDate } from "../lib/utils";
-import { initialChurches } from "../data/initialChurches";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { handleFirestoreError, OperationType } from "../lib/firestoreErrorHandler";
 import { Link } from "react-router-dom";
+import { initializeApp } from "firebase/app";
+import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import firebaseConfig from "../../firebase-applet-config.json";
 
 export default function Admin() {
   const { profile, isAdmin, isChurchAdmin, loading: authLoading } = useAuth();
@@ -80,15 +77,20 @@ export default function Admin() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    const path = "config/global";
-    const unsub = onSnapshot(doc(db, "config", "global"), (docSnap) => {
-      if (docSnap.exists()) {
-        setAppSettings(docSnap.data() as any);
+    const fetchSettings = async () => {
+      try {
+        const config = await api.getEntities("config");
+        const globalConfig = config.find((c: any) => c.id === "global");
+        if (globalConfig) {
+          setAppSettings(globalConfig);
+        }
+      } catch (error) {
+        console.error("Error fetching settings:", error);
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
-    });
-    return () => unsub();
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 30000);
+    return () => clearInterval(interval);
   }, [isAdmin]);
 
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
@@ -205,10 +207,11 @@ export default function Admin() {
   const toggleSetting = async (key: keyof typeof appSettings) => {
     try {
       const newVal = !appSettings[key];
-      await updateDoc(doc(db, "config", "global"), { [key]: newVal });
+      await api.updateEntity("config", "global", { [key]: newVal });
+      setAppSettings(prev => ({ ...prev, [key]: newVal }));
       toast.success(`${key.replace(/([A-Z])/g, ' $1').toLowerCase()} updated`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, "config/global");
+      console.error("Error updating setting:", error);
       toast.error("Failed to update setting");
     }
   };
@@ -234,82 +237,54 @@ export default function Admin() {
 
       try {
         // Fetch Churches
-        let churchesQuery = query(collection(db, "churches"));
+        const churchesList = await api.getChurches();
         if (!isAdmin && isChurchAdmin && profile?.churchId) {
-          // Only fetch the specific church for church admins
-          const churchDoc = await getDoc(doc(db, "churches", profile.churchId));
-          if (churchDoc.exists()) {
-            setChurches([{ id: churchDoc.id, name: churchDoc.data().name, ...churchDoc.data() }]);
-          } else {
-            setChurches([]);
-          }
+          setChurches(churchesList.filter(c => c.id === profile.churchId));
         } else {
-          const churchesSnap = await getDocs(churchesQuery);
-          const churchesList = churchesSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, ...doc.data() }));
           setChurches(churchesList);
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "churches");
+        console.error("Error fetching churches:", error);
       }
 
       try {
         // Fetch Members
-        let membersQuery = query(collection(db, "members"));
-        if (!isAdmin && isChurchAdmin && profile?.churchId) {
-          membersQuery = query(collection(db, "members"), where("churchId", "==", profile.churchId));
-        }
-        const membersSnap = await getDocs(membersQuery);
-        setMembers(membersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const membersData = await api.getEntities("members", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        setMembers(membersData);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "members");
+        console.error("Error fetching members:", error);
       }
 
       try {
         // Fetch Services
-        let servicesQuery = query(collection(db, "services"));
-        if (!isAdmin && isChurchAdmin && profile?.churchId) {
-          servicesQuery = query(collection(db, "services"), where("churchId", "==", profile.churchId));
-        }
-        const servicesSnap = await getDocs(servicesQuery);
-        setServices(servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const servicesData = await api.getEntities("services", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        setServices(servicesData);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "services");
+        console.error("Error fetching services:", error);
       }
 
       try {
         // Fetch Ministers
-        let ministersQuery = query(collection(db, "ministers"));
-        if (!isAdmin && isChurchAdmin && profile?.churchId) {
-          ministersQuery = query(collection(db, "ministers"), where("churchId", "==", profile.churchId));
-        }
-        const ministersSnap = await getDocs(ministersQuery);
-        setMinisters(ministersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const ministersData = await api.getEntities("ministers", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        setMinisters(ministersData);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "ministers");
+        console.error("Error fetching ministers:", error);
       }
 
       try {
         // Fetch Announcements
-        let announcementsQuery = query(collection(db, "announcements"));
-        if (!isAdmin && isChurchAdmin && profile?.churchId) {
-          announcementsQuery = query(collection(db, "announcements"), where("churchId", "==", profile.churchId));
-        }
-        const announcementsSnap = await getDocs(announcementsQuery);
-        setAnnouncements(announcementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const announcementsData = await api.getEntities("announcements", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        setAnnouncements(announcementsData);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "announcements");
+        console.error("Error fetching announcements:", error);
       }
 
       try {
         // Fetch Livestreams
-        let livestreamsQuery = query(collection(db, "livestreams"));
-        if (!isAdmin && isChurchAdmin && profile?.churchId) {
-          livestreamsQuery = query(collection(db, "livestreams"), where("churchId", "==", profile.churchId));
-        }
-        const livestreamsSnap = await getDocs(livestreamsQuery);
-        setLivestreams(livestreamsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const livestreamsData = await api.getEntities("livestreams", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        setLivestreams(livestreamsData);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "livestreams");
+        console.error("Error fetching livestreams:", error);
       }
     };
     fetchData();
@@ -318,18 +293,17 @@ export default function Admin() {
   useEffect(() => {
     if (authLoading || (!isAdmin && !isChurchAdmin)) return;
 
-    let usersQuery = query(collection(db, "users"));
-    if (!isAdmin && isChurchAdmin && profile?.churchId) {
-      usersQuery = query(collection(db, "users"), where("churchId", "==", profile.churchId));
-    }
+    const fetchUsers = async () => {
+      try {
+        const usersData = await api.getEntities("users", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        setUsers(usersData);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
 
-    const unsub = onSnapshot(usersQuery, (usersSnap) => {
-      setUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, "users");
-    });
-
-    return () => unsub();
+    fetchUsers();
+    // In a real app, we might set up a polling interval or WebSocket here
   }, [authLoading, isAdmin, isChurchAdmin, profile?.churchId]);
 
   const regions = [
@@ -349,11 +323,14 @@ export default function Admin() {
       console.log("Starting church update/add:", churchForm);
       let imageUrl = "";
       if (churchForm.image) {
-        console.log("Uploading image:", churchForm.image.name);
-        const storageRef = ref(storage, `churches/${Date.now()}_${churchForm.image.name}`);
-        await uploadBytes(storageRef, churchForm.image);
-        imageUrl = await getDownloadURL(storageRef);
-        console.log("Image uploaded, URL:", imageUrl);
+        try {
+          console.log("Uploading image:", churchForm.image.name);
+          imageUrl = await api.uploadImage(churchForm.image);
+          console.log("Image uploaded, URL:", imageUrl);
+        } catch (error) {
+          console.error("Upload error:", error);
+          toast.error("Failed to upload image to local server.");
+        }
       }
 
       const churchData: any = {
@@ -373,13 +350,17 @@ export default function Admin() {
 
       if (churchForm.id) {
         // Update
-        await setDoc(doc(db, "churches", churchForm.id), churchData, { merge: true });
+        await api.updateChurch(churchForm.id, churchData);
         toast.success("Church updated successfully!");
       } else {
         // Add
-        await addDoc(collection(db, "churches"), churchData);
+        await api.addChurch(churchData);
         toast.success("Church added successfully!");
       }
+      
+      // Refresh churches
+      const updatedChurches = await api.getChurches();
+      setChurches(updatedChurches);
       
       setChurchForm({ id: "", name: "", region: "", district: "", address: "", lat: "", lng: "", contact: "", image: null });
     } catch (error: any) {
@@ -409,7 +390,7 @@ export default function Admin() {
           role: userForm.role,
           churchId: userForm.churchId || (isChurchAdmin ? profile?.churchId : ""),
         };
-        await setDoc(doc(db, "users", userForm.id), updateData, { merge: true });
+        await api.updateUserProfile(userForm.id, updateData);
         toast.success("User updated successfully!");
         setUsers(users.map(u => u.id === userForm.id ? { ...u, ...updateData } : u));
       } else {
@@ -425,9 +406,9 @@ export default function Admin() {
           const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, defaultPassword);
           const uid = userCredential.user.uid;
           
-          // 2. Create Firestore profile
+          // 2. Create local profile
           const userData = {
-            uid,
+            id: uid,
             fullName: userForm.fullName,
             email: email,
             role: userForm.role,
@@ -436,7 +417,7 @@ export default function Admin() {
             mustChangePassword: true,
           };
           
-          await setDoc(doc(db, "users", uid), userData);
+          await api.createUserProfile(userData);
           setUsers([{ id: uid, ...userData }, ...users]);
           toast.success(`User created! Default password is: ${defaultPassword}`);
           
@@ -455,8 +436,8 @@ export default function Admin() {
               mustChangePassword: true,
               createdAt: new Date().toISOString(),
             };
-            const docRef = await addDoc(collection(db, "users"), userData);
-            setUsers([{ id: docRef.id, ...userData }, ...users]);
+            const result = await api.createUserProfile(userData);
+            setUsers([{ id: result.id, ...userData }, ...users]);
           } else {
             throw authErr;
           }
@@ -471,10 +452,26 @@ export default function Admin() {
     }
   };
 
+  const handleSeedData = async () => {
+    if (!window.confirm("This will seed the database with initial church data. Continue?")) return;
+    setLoading(true);
+    try {
+      await api.seedData(initialChurches);
+      toast.success("Database seeded successfully!");
+      const updatedChurches = await api.getChurches();
+      setChurches(updatedChurches);
+    } catch (error) {
+      console.error("Seeding error:", error);
+      toast.error("Failed to seed database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleResetPassword = async (userId: string) => {
     if (!window.confirm("Force this user to change their password on next login?")) return;
     try {
-      await setDoc(doc(db, "users", userId), { mustChangePassword: true }, { merge: true });
+      await api.updateUserProfile(userId, { mustChangePassword: true });
       toast.success("User will be prompted to change password on next login.");
       setUsers(users.map(u => u.id === userId ? { ...u, mustChangePassword: true } : u));
     } catch (error: any) {
@@ -485,7 +482,7 @@ export default function Admin() {
   const handleDeleteUser = async (userId: string) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      await deleteDoc(doc(db, "users", userId));
+      await api.deleteEntity("users", userId);
       toast.success("User deleted");
       setUsers(users.filter(u => u.id !== userId));
     } catch (error: any) {
@@ -515,12 +512,12 @@ export default function Admin() {
       };
       
       if (memberForm.id) {
-        await setDoc(doc(db, "members", memberForm.id), memberData, { merge: true });
+        await api.updateEntity("members", memberForm.id, memberData);
         toast.success("Member updated successfully!");
         setMembers(members.map(m => m.id === memberForm.id ? { ...m, ...memberData } : m));
       } else {
-        const docRef = await addDoc(collection(db, "members"), memberData);
-        setMembers([{ id: docRef.id, ...memberData }, ...members]);
+        const result = await api.addEntity("members", memberData);
+        setMembers([{ id: result.id, ...memberData }, ...members]);
         toast.success("Member added successfully!");
       }
       
@@ -543,12 +540,12 @@ export default function Admin() {
       const { id, ...rest } = data;
 
       if (id) {
-        await setDoc(doc(db, "services", id), rest, { merge: true });
+        await api.updateEntity("services", id, rest);
         setServices(services.map(s => s.id === id ? { ...s, ...rest } : s));
         toast.success("Service updated");
       } else {
-        const docRef = await addDoc(collection(db, "services"), rest);
-        setServices([{ id: docRef.id, ...rest }, ...services]);
+        const result = await api.addEntity("services", rest);
+        setServices([{ id: result.id, ...rest }, ...services]);
         toast.success("Service added");
       }
       setServiceForm({ id: "", name: "", schedule: "", description: "", churchId: "" });
@@ -570,12 +567,12 @@ export default function Admin() {
       const { id, ...rest } = data;
 
       if (id) {
-        await setDoc(doc(db, "ministers", id), rest, { merge: true });
+        await api.updateEntity("ministers", id, rest);
         setMinisters(ministers.map(m => m.id === id ? { ...m, ...rest } : m));
         toast.success("Minister updated");
       } else {
-        const docRef = await addDoc(collection(db, "ministers"), rest);
-        setMinisters([{ id: docRef.id, ...rest }, ...ministers]);
+        const result = await api.addEntity("ministers", rest);
+        setMinisters([{ id: result.id, ...rest }, ...ministers]);
         toast.success("Minister added");
       }
       setMinisterForm({ id: "", name: "", role: "", contact: "", churchId: "" });
@@ -597,12 +594,12 @@ export default function Admin() {
       const { id, ...rest } = data;
 
       if (id) {
-        await setDoc(doc(db, "announcements", id), rest, { merge: true });
+        await api.updateEntity("announcements", id, rest);
         setAnnouncements(announcements.map(a => a.id === id ? { ...a, ...rest } : a));
         toast.success("Announcement updated");
       } else {
-        const docRef = await addDoc(collection(db, "announcements"), rest);
-        setAnnouncements([{ id: docRef.id, ...rest }, ...announcements]);
+        const result = await api.addEntity("announcements", rest);
+        setAnnouncements([{ id: result.id, ...rest }, ...announcements]);
         toast.success("Announcement added");
       }
       setAnnouncementForm({ id: "", title: "", description: "", date: "", imageUrl: "", churchId: "" });
@@ -624,12 +621,12 @@ export default function Admin() {
       const { id, ...rest } = data;
 
       if (id) {
-        await setDoc(doc(db, "livestreams", id), rest, { merge: true });
+        await api.updateEntity("livestreams", id, rest);
         setLivestreams(livestreams.map(l => l.id === id ? { ...l, ...rest } : l));
         toast.success("Livestream updated");
       } else {
-        const docRef = await addDoc(collection(db, "livestreams"), rest);
-        setLivestreams([{ id: docRef.id, ...rest }, ...livestreams]);
+        const result = await api.addEntity("livestreams", rest);
+        setLivestreams([{ id: result.id, ...rest }, ...livestreams]);
         toast.success("Livestream added");
       }
       setLivestreamForm({ id: "", url: "", status: "Offline", churchId: "" });
@@ -643,7 +640,7 @@ export default function Admin() {
   const handleDeleteMember = async (id: string) => {
     if (!window.confirm("Delete member?")) return;
     try {
-      await deleteDoc(doc(db, "members", id));
+      await api.deleteEntity("members", id);
       setMembers(members.filter(m => m.id !== id));
       toast.success("Member deleted");
     } catch (error: any) {
@@ -654,7 +651,7 @@ export default function Admin() {
   const handleDeleteService = async (id: string) => {
     if (!window.confirm("Delete service?")) return;
     try {
-      await deleteDoc(doc(db, "services", id));
+      await api.deleteEntity("services", id);
       setServices(services.filter(s => s.id !== id));
       toast.success("Service deleted");
     } catch (error: any) {
@@ -665,7 +662,7 @@ export default function Admin() {
   const handleDeleteMinister = async (id: string) => {
     if (!window.confirm("Delete minister?")) return;
     try {
-      await deleteDoc(doc(db, "ministers", id));
+      await api.deleteEntity("ministers", id);
       setMinisters(ministers.filter(m => m.id !== id));
       toast.success("Minister deleted");
     } catch (error: any) {
@@ -676,7 +673,7 @@ export default function Admin() {
   const handleDeleteAnnouncement = async (id: string) => {
     if (!window.confirm("Delete announcement?")) return;
     try {
-      await deleteDoc(doc(db, "announcements", id));
+      await api.deleteEntity("announcements", id);
       setAnnouncements(announcements.filter(a => a.id !== id));
       toast.success("Announcement deleted");
     } catch (error: any) {
@@ -687,46 +684,11 @@ export default function Admin() {
   const handleDeleteLivestream = async (id: string) => {
     if (!window.confirm("Delete livestream?")) return;
     try {
-      await deleteDoc(doc(db, "livestreams", id));
+      await api.deleteEntity("livestreams", id);
       setLivestreams(livestreams.filter(l => l.id !== id));
       toast.success("Livestream deleted");
     } catch (error: any) {
       toast.error(error.message);
-    }
-  };
-
-  const handleSeedData = async () => {
-    if (!isAdmin) return;
-    setLoading(true);
-    try {
-      const churchesCol = collection(db, "churches");
-      const existingSnap = await getDocs(churchesCol);
-      const existingNames = new Set(existingSnap.docs.map(doc => doc.data().name));
-
-      let addedCount = 0;
-      for (const church of initialChurches) {
-        if (!existingNames.has(church.name)) {
-          await addDoc(churchesCol, church);
-          addedCount++;
-        }
-      }
-
-      if (addedCount > 0) {
-        toast.success(`Successfully added ${addedCount} churches!`);
-      } else {
-        toast.info("All initial churches already exist in the database.");
-      }
-
-      // Seed Settings
-      await setDoc(doc(db, "config", "global"), {
-        maintenanceMode: false,
-        publicSignups: true
-      });
-      toast.success("System settings initialized!");
-    } catch (error: any) {
-      toast.error("Failed to seed data: " + error.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -772,12 +734,12 @@ export default function Admin() {
   const handleEdit = (feature: string, item: any) => {
     setActiveTab(feature as any);
     switch (feature) {
-      case "members": setMemberForm(item); break;
-      case "users": setUserForm(item); break;
-      case "ministers": setMinisterForm(item); break;
-      case "services": setServiceForm(item); break;
-      case "announcements": setAnnouncementForm(item); break;
-      case "livestreams": setLivestreamForm(item); break;
+      case "members": setMemberForm({ ...item, churchId: item.churchId || "", status: item.status || "Active" }); break;
+      case "users": setUserForm({ ...item, churchId: item.churchId || "", role: item.role || "church_end_user" }); break;
+      case "ministers": setMinisterForm({ ...item, churchId: item.churchId || "" }); break;
+      case "services": setServiceForm({ ...item, churchId: item.churchId || "" }); break;
+      case "announcements": setAnnouncementForm({ ...item, churchId: item.churchId || "" }); break;
+      case "livestreams": setLivestreamForm({ ...item, churchId: item.churchId || "" }); break;
     }
   };
 
@@ -1282,9 +1244,13 @@ export default function Admin() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             if(window.confirm("Delete church?")) {
-                              await deleteDoc(doc(db, "churches", church.id));
-                              setChurches(churches.filter(c => c.id !== church.id));
-                              toast.success("Church deleted");
+                              try {
+                                await api.deleteChurch(church.id);
+                                setChurches(churches.filter(c => c.id !== church.id));
+                                toast.success("Church deleted");
+                              } catch (error: any) {
+                                toast.error("Failed to delete church: " + error.message);
+                              }
                             }
                           }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -1400,7 +1366,7 @@ export default function Admin() {
                   <div key={user.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
                     <div>
                       <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", user.status === 'online' && user.lastSeen && (new Date().getTime() - user.lastSeen.toMillis() < 5 * 60 * 1000) ? 'bg-emerald-500' : 'bg-slate-300')} />
+                        <div className={cn("w-2 h-2 rounded-full", user.status === 'online' && user.lastSeen && (new Date().getTime() - (typeof user.lastSeen?.toMillis === 'function' ? user.lastSeen.toMillis() : new Date(user.lastSeen).getTime()) < 5 * 60 * 1000) ? 'bg-emerald-500' : 'bg-slate-300')} />
                         <p className="font-bold text-slate-800">{user.fullName}</p>
                       </div>
                       <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">{user.role.replace('_', ' ')}</p>
@@ -2102,12 +2068,12 @@ export default function Admin() {
                     try {
                       const logoUrl = "https://share.google/f0PDGt0WkAdZpbbRK";
                       for (const church of churches) {
-                        await updateDoc(doc(db, "churches", church.id), { images: [logoUrl] });
+                        await api.updateChurch(church.id, { images: [logoUrl] });
                       }
                       toast.success("All church images updated successfully!");
                       // Refresh churches list
-                      const churchesSnap = await getDocs(collection(db, "churches"));
-                      setChurches(churchesSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, ...doc.data() })));
+                      const updatedChurches = await api.getChurches();
+                      setChurches(updatedChurches);
                     } catch (error: any) {
                       toast.error("Failed to update images: " + error.message);
                     } finally {
@@ -2118,6 +2084,20 @@ export default function Admin() {
                   className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all disabled:opacity-50"
                 >
                   {loading ? <Loader2 className="animate-spin" size={16} /> : "Update All"}
+                </button>
+              </div>
+
+              <div className="flex justify-between items-center pt-6 border-t border-slate-200">
+                <div>
+                  <p className="font-bold text-slate-800">Database Seeding</p>
+                  <p className="text-xs text-slate-500">Populate the database with initial church data</p>
+                </div>
+                <button 
+                  onClick={handleSeedData}
+                  disabled={loading}
+                  className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={16} /> : "Seed Churches"}
                 </button>
               </div>
             </div>

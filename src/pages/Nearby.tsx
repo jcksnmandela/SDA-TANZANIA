@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
 import { MapPin, Navigation, Loader2, Compass, Shield, Info, Settings } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { cn } from "../lib/utils";
 import { useAuth } from "../hooks/useAuth";
+import { api } from "../api";
 
 interface Church {
   id: string;
@@ -57,11 +57,7 @@ export default function Nearby() {
         }
 
         // Fetch churches
-        const querySnapshot = await getDocs(collection(db, "churches"));
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Church[];
+        const data = await api.getChurches();
         setChurches(data);
       } catch (err) {
         console.error("Error:", err);
@@ -162,13 +158,20 @@ export default function Nearby() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Link
-                  to={`/church/${church.id}`}
-                  className="flex items-center justify-center gap-1.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm shadow-emerald-600/20 active:scale-[0.97]"
-                >
-                  <Info size={14} />
-                  View
-                </Link>
+                  <button
+                    onClick={() => {
+                      if (profile) {
+                        navigate(`/church/${church.id}`);
+                      } else {
+                        toast.error("Login to Access the Church");
+                        navigate("/auth");
+                      }
+                    }}
+                    className="flex items-center justify-center gap-1.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm shadow-emerald-600/20 active:scale-[0.97]"
+                  >
+                    <Info size={14} />
+                    View
+                  </button>
                 
                 {(isAdmin || (isChurchAdmin && profile?.churchId === church.id)) ? (
                   <Link

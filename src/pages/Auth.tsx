@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth";
-import { auth, db } from "../firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { auth } from "../firebase";
 import { toast } from "sonner";
 import { LogIn, UserPlus, Mail, Lock, User, Eye, EyeOff, ShieldCheck, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import { handleFirestoreError, OperationType } from "../lib/firestoreErrorHandler";
+import { api } from "../api";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -21,12 +20,13 @@ export default function Auth() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const docSnap = await getDoc(doc(db, "config", "global"));
-        if (docSnap.exists()) {
-          setPublicSignups(docSnap.data().publicSignups);
+        const config = await api.getEntities("config");
+        const globalConfig = config.find((c: any) => c.id === "global");
+        if (globalConfig) {
+          setPublicSignups(globalConfig.publicSignups);
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, "config/global");
+        console.error("Error fetching settings:", error);
       }
     };
     fetchSettings();
@@ -48,16 +48,16 @@ export default function Auth() {
         const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
         const user = userCredential.user;
         const userData = {
-          uid: user.uid,
+          id: user.uid,
           fullName,
           email: trimmedEmail,
           favorites: [],
           role: (trimmedEmail === "jcksnmandela@gmail.com" || trimmedEmail === "admin@sda.tz") ? "admin" : "online_user",
         };
         try {
-          await setDoc(doc(db, "users", user.uid), userData);
+          await api.createUserProfile(userData);
         } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+          console.error("Error creating profile:", error);
         }
         toast.success("Account created successfully!");
       }
