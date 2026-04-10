@@ -30,30 +30,35 @@ service cloud.firestore {
     match /services/{serviceId} {
       allow list: if true;
       allow get: if isAuthenticated();
-      allow write: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
+      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
     }
 
     match /ministers/{ministerId} {
       allow list: if true;
       allow get: if isAuthenticated();
-      allow write: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
+      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
     }
 
     match /announcements/{announcementId} {
       allow list: if true;
       allow get: if isAuthenticated();
-      allow write: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
+      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
     }
 
     match /livestreams/{livestreamId} {
       allow list: if true;
       allow get: if isAuthenticated();
-      allow write: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
+      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
     }
 
     match /members/{memberId} {
       allow read: if isAuthenticated() && (isAdmin() || isChurchAdmin(resource.data.churchId));
-      allow write: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
+      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
     }
     
     match /config/{configId} {

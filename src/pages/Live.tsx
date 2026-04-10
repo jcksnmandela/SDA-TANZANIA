@@ -17,6 +17,11 @@ export default function Live() {
   const [streams, setStreams] = useState<Livestream[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStream, setActiveStream] = useState<Livestream | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+  }, [activeStream]);
 
   useEffect(() => {
     const fetchStreams = async () => {
@@ -66,7 +71,8 @@ export default function Live() {
                 width="100%"
                 height="100%"
                 controls
-                playing
+                playing={ready}
+                onReady={() => setReady(true)}
               />
               <div className="absolute top-4 left-4 flex items-center gap-2">
                 <div className={cn(

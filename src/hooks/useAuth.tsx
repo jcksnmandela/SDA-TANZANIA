@@ -8,8 +8,8 @@ interface UserProfile {
   name: string;
   email: string;
   favorites: string[];
-  role: "admin" | "church_admin" | "church_end_user" | "online_user";
-  churchId?: string; // For church_admin and church_end_user
+  role: "admin" | "church_admin" | "church_end_user" | "online_user" | "treasurer";
+  churchId?: string; // For church_admin, church_end_user, and treasurer
   mustChangePassword?: boolean;
   status?: "online" | "offline";
   lastSeen?: any;
@@ -21,6 +21,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   isChurchAdmin: boolean;
+  isTreasurer: boolean;
   isChurchEndUser: boolean;
   isOnlineUser: boolean;
   mustChangePassword: boolean;
@@ -32,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAdmin: false,
   isChurchAdmin: false,
+  isTreasurer: false,
   isChurchEndUser: false,
   isOnlineUser: false,
   mustChangePassword: false,
@@ -91,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         isAdmin: profile?.role === "admin" || (user?.email === "jcksnmandela@gmail.com" || user?.email === "admin@sda.tz"),
         isChurchAdmin: profile?.role === "church_admin",
+        isTreasurer: profile?.role === "treasurer",
         isChurchEndUser: profile?.role === "church_end_user",
         isOnlineUser: profile?.role === "online_user" && !(user?.email === "jcksnmandela@gmail.com" || user?.email === "admin@sda.tz"),
         mustChangePassword: !!profile?.mustChangePassword,

@@ -7,6 +7,7 @@ import Announcements from "./pages/Announcements";
 import Live from "./pages/Live";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
+import Treasurer from "./pages/Treasurer";
 import ChurchDetails from "./pages/ChurchDetails";
 import Auth from "./pages/Auth";
 import AdminAuth from "./pages/AdminAuth";
@@ -28,6 +29,7 @@ export default function App() {
                 <Route path="/live" element={<Live />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/church/:churchId/treasurer" element={<Treasurer />} />
                 <Route path="/church/:id" element={<ChurchDetails />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/admin-login" element={<AdminAuth />} />

@@ -1,6 +1,6 @@
 import { churchService, Church } from "./services/churchService";
 import { db } from "./firebase";
-import { collection, getDocs, query, where, doc, setDoc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, setDoc, updateDoc, getDoc, deleteDoc } from "firebase/firestore";
 
 export { type Church };
 
@@ -62,16 +62,25 @@ export const api = {
   },
 
   async addEntity(entity: string, data: any): Promise<any> {
-    // Implement Firestore version
-    return null;
+    try {
+      const colRef = collection(db, entity);
+      const docRef = doc(colRef);
+      await setDoc(docRef, { ...data, id: docRef.id });
+      return { id: docRef.id, ...data };
+    } catch (error) {
+      console.error(`Error adding entity to ${entity}:`, error);
+      throw error;
+    }
   },
 
   async updateEntity(entity: string, id: string, data: any): Promise<any> {
-    // Implement Firestore version
-    return null;
+    const docRef = doc(db, entity, id);
+    await updateDoc(docRef, data);
+    return { id, ...data };
   },
 
   async deleteEntity(entity: string, id: string): Promise<void> {
-    // Implement Firestore version
+    const docRef = doc(db, entity, id);
+    await deleteDoc(docRef);
   },
 };

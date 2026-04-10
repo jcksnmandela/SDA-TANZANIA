@@ -6,8 +6,8 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "NODE_ENV=production node dist/server.js",
-    "build": "vite build && cp firebase-applet-config.json dist/ && npx esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --external:vite",
+    "start": "NODE_ENV=production node dist/server.cjs",
+    "build": "vite build && cp firebase-applet-config.json dist/ && npx esbuild server.ts --bundle --platform=node --format=cjs --outfile=dist/server.cjs --external:vite",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",

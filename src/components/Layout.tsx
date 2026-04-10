@@ -6,18 +6,20 @@ import { cn } from "../lib/utils";
 import ChangePasswordOverlay from "./ChangePasswordOverlay";
 import ThemeSwitcher from "./ThemeSwitcher";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin, isChurchAdmin, mustChangePassword, profile } = useAuth();
+  const { t } = useTranslation();
 
   const navItems = [
-    { path: "/", icon: Home, label: "Home" },
-    { path: "/nearby", icon: MapPin, label: "Nearby" },
-    { path: "/announcements", icon: Bell, label: "News" },
-    { path: "/live", icon: Tv, label: "Live" },
-    { path: "/profile", icon: User, label: "Profile" },
+    { path: "/", icon: Home, label: t("Home") },
+    { path: "/nearby", icon: MapPin, label: t("Nearby") },
+    { path: "/announcements", icon: Bell, label: t("News") },
+    { path: "/live", icon: Tv, label: t("Live") },
+    { path: "/profile", icon: User, label: t("Profile") },
   ];
 
   if (isAdmin || isChurchAdmin) {
@@ -37,34 +39,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </Link>
           
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-6">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              
-              const handleClick = (e: React.MouseEvent) => {
-                if (["/nearby", "/announcements", "/live"].includes(item.path) && !profile) {
-                  e.preventDefault();
-                  toast.error("Login to Access the Church");
-                  navigate("/auth");
-                }
-              };
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-6">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                
+                const handleClick = (e: React.MouseEvent) => {
+                  if (["/nearby", "/announcements", "/live"].includes(item.path) && !profile) {
+                    e.preventDefault();
+                    toast.error("Login to Access the Church");
+                    navigate("/auth");
+                  }
+                };
 
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={handleClick}
-                  className={cn(
-                    "flex items-center gap-2 text-sm font-medium transition-colors",
-                    isActive ? "text-white" : "text-emerald-100 hover:text-white"
-                  )}
-                >
-                  <Icon size={18} />
-                  {item.label}
-                </Link>
-              );
-            })}
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={handleClick}
+                    className={cn(
+                      "flex items-center gap-2 text-sm font-medium transition-colors",
+                      isActive ? "text-white" : "text-emerald-100 hover:text-white"
+                    )}
+                  >
+                    <Icon size={18} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
             <div className="flex items-center gap-2">
               <ThemeSwitcher />
               <LanguageSwitcher />

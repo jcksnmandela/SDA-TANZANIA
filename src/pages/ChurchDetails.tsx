@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MapPin, Phone, Clock, Users, Bell, Tv, ArrowLeft, Navigation, Heart, Share2, Loader2, Shield, FileText, FileSpreadsheet, Database, Eye, X, ImageIcon } from "lucide-react";
+import { MapPin, Phone, Clock, Users, Bell, Tv, ArrowLeft, Navigation, Heart, Share2, Loader2, Shield, FileText, FileSpreadsheet, Database, Eye, X, ImageIcon, DollarSign } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { cn, formatDate, getChurchImage } from "../lib/utils";
 import { toast } from "sonner";
@@ -286,6 +286,15 @@ export default function ChurchDetails() {
                     className="flex-1 min-w-[160px] bg-slate-800 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
                   >
                     <Shield size={18} /> Manage Data
+                  </button>
+                )}
+
+                {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id) || (profile?.role === "treasurer" && profile?.churchId === id)) && (
+                  <button
+                    onClick={() => navigate(`/church/${id}/treasurer`)}
+                    className="flex-1 min-w-[160px] bg-emerald-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+                  >
+                    <DollarSign size={18} /> Treasurer
                   </button>
                 )}
 

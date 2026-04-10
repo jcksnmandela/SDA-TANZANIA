@@ -4,7 +4,7 @@ import { initialChurches } from "../data/initialChurches";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye } from "lucide-react";
+import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye, DollarSign } from "lucide-react";
 import { cn, formatDate } from "../lib/utils";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -15,17 +15,17 @@ import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth"
 import firebaseConfig from "../../firebase-applet-config.json";
 
 export default function Admin() {
-  const { profile, isAdmin, isChurchAdmin, loading: authLoading } = useAuth();
+  const { profile, isAdmin, isChurchAdmin, isTreasurer, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"churches" | "users" | "members" | "services" | "ministers" | "announcements" | "livestreams" | "settings">("churches");
+  const [activeTab, setActiveTab] = useState<"churches" | "users" | "members" | "services" | "ministers" | "announcements" | "livestreams" | "settings" | "accounts">("churches");
 
   useEffect(() => {
     const tab = searchParams.get("tab");
     const churchId = searchParams.get("churchId");
     
     if (tab) {
-      const validTabs = ["churches", "users", "members", "services", "ministers", "announcements", "livestreams", "settings"];
+      const validTabs = ["churches", "users", "members", "services", "ministers", "announcements", "livestreams", "settings", "accounts"];
       if (validTabs.includes(tab)) {
         setActiveTab(tab as any);
       }
@@ -388,7 +388,7 @@ export default function Admin() {
           fullName: userForm.fullName,
           email: email,
           role: userForm.role,
-          churchId: userForm.churchId || (isChurchAdmin ? profile?.churchId : ""),
+          churchId: userForm.churchId || ((isChurchAdmin || isTreasurer) ? profile?.churchId : ""),
         };
         await api.updateUserProfile(userForm.id, updateData);
         toast.success("User updated successfully!");
@@ -412,7 +412,7 @@ export default function Admin() {
             fullName: userForm.fullName,
             email: email,
             role: userForm.role,
-            churchId: userForm.churchId || (isChurchAdmin ? profile?.churchId : ""),
+            churchId: userForm.churchId || ((isChurchAdmin || isTreasurer) ? profile?.churchId : ""),
             favorites: [],
             mustChangePassword: true,
           };
@@ -431,7 +431,7 @@ export default function Admin() {
               fullName: userForm.fullName,
               email: email,
               role: userForm.role,
-              churchId: userForm.churchId || (isChurchAdmin ? profile?.churchId : ""),
+              churchId: userForm.churchId || ((isChurchAdmin || isTreasurer) ? profile?.churchId : ""),
               favorites: [],
               mustChangePassword: true,
               createdAt: new Date().toISOString(),
@@ -952,6 +952,7 @@ export default function Admin() {
           { id: "services", icon: Bell, label: "Services" },
           { id: "announcements", icon: Bell, label: "News" },
           { id: "livestreams", icon: Tv, label: "Live" },
+          { id: "accounts", icon: DollarSign, label: "Church Accounts" },
           isAdmin && { id: "settings", icon: Database, label: "Settings" },
         ].filter(Boolean).map((tab: any) => (
           <button
@@ -1301,10 +1302,11 @@ export default function Admin() {
                 >
                   {isAdmin && <option value="admin">Super Admin</option>}
                   <option value="church_admin">Church Admin</option>
+                  <option value="treasurer">Church Treasurer</option>
                   <option value="church_end_user">Church End-user</option>
                   <option value="online_user">Online User</option>
                 </select>
-                {(isAdmin || userForm.role === "church_admin" || userForm.role === "church_end_user") && (
+                {(isAdmin || userForm.role === "church_admin" || userForm.role === "church_end_user" || userForm.role === "treasurer") && (
                   <select
                     className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
                     value={userForm.churchId}
@@ -2100,6 +2102,21 @@ export default function Admin() {
                   {loading ? <Loader2 className="animate-spin" size={16} /> : "Seed Churches"}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+        {activeTab === "accounts" && (
+          <div className="space-y-8">
+            <div className="p-12 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+              <DollarSign size={48} className="mx-auto text-slate-300 mb-4" />
+              <h3 className="font-bold text-lg text-slate-800">Church Accounts</h3>
+              <p className="text-slate-500 mb-6">Manage your church's finances and offerings.</p>
+              <Link 
+                to="/admin?tab=accounts&action=create-category"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors"
+              >
+                <Plus size={20} /> Create Offering Category
+              </Link>
             </div>
           </div>
         )}

@@ -24,6 +24,7 @@ const containerStyle = {
 
 export default function Nearby() {
   const { profile, isAdmin, isChurchAdmin } = useAuth();
+  const navigate = useNavigate();
   const [churches, setChurches] = useState<Church[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,7 @@ export default function Nearby() {
 
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
-    googleMapsApiKey: "YOUR_GOOGLE_MAPS_API_KEY", // Placeholder
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
   });
 
   useEffect(() => {
@@ -152,10 +153,19 @@ export default function Nearby() {
                     </p>
                   )}
                 </div>
-                <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center">
-                  <Navigation size={18} />
-                </div>
               </div>
+
+              {isLoaded && (
+                <div className="mb-4 rounded-xl overflow-hidden">
+                  <GoogleMap
+                    mapContainerStyle={{ width: "100%", height: "150px" }}
+                    center={church.location}
+                    zoom={15}
+                  >
+                    <Marker position={church.location} />
+                  </GoogleMap>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                   <button
