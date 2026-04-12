@@ -47,7 +47,7 @@ export const DownloadManager: React.FC = () => {
     const link = document.createElement('a');
     link.href = url;
     link.download = name;
-    link.target = '_blank';
+    // Removed target="_blank" to avoid popup blockers in sandboxed environments
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -249,6 +249,14 @@ export const DownloadManager: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => window.open(viewingItem.url, '_blank')}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-2 text-xs font-bold"
+                    title="Open in new tab"
+                  >
+                    <ExternalLink size={18} />
+                    <span className="hidden sm:inline">Open Tab</span>
+                  </button>
+                  <button
                     onClick={() => triggerDownload(viewingItem.url, viewingItem.name)}
                     className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors flex items-center gap-2 text-xs font-bold"
                   >
@@ -274,11 +282,27 @@ export const DownloadManager: React.FC = () => {
                     referrerPolicy="no-referrer"
                   />
                 ) : viewingItem.type.toLowerCase() === 'pdf' ? (
-                  <iframe
-                    src={`${viewingItem.url}#toolbar=0`}
-                    className="w-full h-full border-none bg-white"
-                    title={viewingItem.name}
-                  />
+                  <div className="w-full h-full flex flex-col">
+                    <object
+                      data={viewingItem.url}
+                      type="application/pdf"
+                      className="w-full h-full border-none bg-white"
+                    >
+                      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white">
+                        <FileText size={48} className="text-slate-300 mb-4" />
+                        <h4 className="font-bold text-slate-800 mb-2">Unable to Preview PDF</h4>
+                        <p className="text-sm text-slate-500 mb-6 max-w-xs">
+                          Your browser's security settings or mobile device might be blocking the PDF preview.
+                        </p>
+                        <button
+                          onClick={() => window.open(viewingItem.url, '_blank')}
+                          className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg"
+                        >
+                          Open in New Tab
+                        </button>
+                      </div>
+                    </object>
+                  </div>
                 ) : (
                   <div className="text-center p-8 bg-white rounded-3xl shadow-xl max-w-sm mx-4">
                     <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
