@@ -6,7 +6,7 @@
   "main": "dist/server.cjs",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist/server.cjs --format=cjs --external:vite --external:express --external:path --external:cors --external:fs --external:url",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist/server.cjs --format=cjs --external:vite --external:path --external:fs --external:url",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",

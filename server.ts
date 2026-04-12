@@ -12,6 +12,10 @@ async function startServer() {
     process.env.NODE_ENV = "production";
   }
 
+  console.log(`[Startup] Starting server on port ${PORT}`);
+  console.log(`[Startup] NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[Startup] Current working directory: ${process.cwd()}`);
+
   app.use(cors());
   app.use(express.json());
 
@@ -25,14 +29,29 @@ async function startServer() {
   });
 
   if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "preview") {
-    // In production, we serve from the dist folder relative to the current working directory
-    const distPath = path.join(process.cwd(), "dist");
+    // In production, we serve from the dist folder.
+    // We try multiple ways to find it to be as robust as possible.
+    const possiblePaths = [
+      path.join(process.cwd(), "dist"),
+      path.join(process.cwd()),
+      path.resolve("dist"),
+      path.resolve(".")
+    ];
+
+    let distPath = "";
+    for (const p of possiblePaths) {
+      if (fs.existsSync(path.join(p, "index.html"))) {
+        distPath = p;
+        break;
+      }
+    }
+
+    if (!distPath) {
+      distPath = path.join(process.cwd(), "dist");
+      console.error(`[Error] Could not find index.html in any of: ${possiblePaths.join(", ")}`);
+    }
     
     console.log(`[Production] Serving static files from: ${distPath}`);
-
-    if (!fs.existsSync(distPath)) {
-      console.error(`[Error] Dist directory not found at: ${distPath}`);
-    }
 
     // Serve static files
     app.use(express.static(distPath));
@@ -43,7 +62,7 @@ async function startServer() {
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        res.status(404).send("Frontend build not found. Please run 'npm run build'.");
+        res.status(404).send(`Frontend build not found. Searched in: ${distPath}`);
       }
     });
   } else {
@@ -62,6 +81,12 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+  });
+
+  // Global error handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("[Unhandled Error]", err);
+    res.status(500).send("Internal Server Error");
   });
 }
 
