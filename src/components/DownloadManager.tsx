@@ -1,11 +1,27 @@
-import React, { useState } from 'react';
-import { useDownloads } from '../contexts/DownloadContext';
-import { Download, X, FileText, FileSpreadsheet, Database, Image as ImageIcon, Trash2, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useDownloads, DownloadItem } from '../contexts/DownloadContext';
+import { Download, X, FileText, FileSpreadsheet, Database, Image as ImageIcon, Trash2, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const DownloadManager: React.FC = () => {
   const { downloads, removeDownload, clearDownloads } = useDownloads();
   const [isOpen, setIsOpen] = useState(false);
+  const [activeNotification, setActiveNotification] = useState<DownloadItem | null>(null);
+
+  // Watch for new downloads to show notification
+  useEffect(() => {
+    if (downloads.length > 0) {
+      const latest = downloads[0];
+      // Only show notification if it's very recent (within last 2 seconds)
+      if (Date.now() - latest.timestamp < 2000) {
+        setActiveNotification(latest);
+        const timer = setTimeout(() => {
+          setActiveNotification(null);
+        }, 5000); // Hide after 5 seconds
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [downloads]);
 
   const getIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -29,12 +45,57 @@ export const DownloadManager: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setActiveNotification(null);
   };
 
   if (downloads.length === 0 && !isOpen) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] no-print">
+    <>
+      {/* Top Notification Popup */}
+      <div className="fixed top-4 left-0 right-0 flex justify-center z-[10000] px-4 pointer-events-none no-print">
+        <AnimatePresence>
+          {activeNotification && (
+            <motion.div
+              initial={{ opacity: 0, y: -50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-emerald-100 p-4 flex items-center gap-4 max-w-md w-full"
+              onClick={() => handleOpen(activeNotification.url, activeNotification.name)}
+            >
+              <div className="bg-emerald-100 p-2 rounded-xl text-emerald-600">
+                <CheckCircle2 size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Download Ready</p>
+                <p className="text-sm font-bold text-slate-800 truncate">{activeNotification.name}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpen(activeNotification.url, activeNotification.name);
+                  }}
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm"
+                >
+                  Open
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveNotification(null);
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="fixed bottom-6 right-6 z-[9999] no-print">
       {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -139,6 +200,7 @@ export const DownloadManager: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </>
   );
 };
