@@ -2,10 +2,19 @@ import express from "express";
 import path from "path";
 import cors from "cors";
 import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Ensure NODE_ENV is set
+  if (!process.env.NODE_ENV) {
+    process.env.NODE_ENV = "production";
+  }
 
   app.use(cors());
   app.use(express.json());
@@ -19,8 +28,8 @@ async function startServer() {
     });
   });
 
-  if (process.env.NODE_ENV === "production") {
-    const distPath = path.resolve(process.cwd(), "dist");
+  if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "preview") {
+    const distPath = path.resolve(__dirname, "dist");
     console.log(`[Production] Serving static files from: ${distPath}`);
 
     if (!fs.existsSync(distPath)) {
