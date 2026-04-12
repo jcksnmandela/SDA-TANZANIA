@@ -85,19 +85,19 @@ export default function Home() {
     <div className="p-4 space-y-6">
       <div className="space-y-4">
         {(isAdmin || isChurchAdmin) && (
-          <div className="bg-emerald-800 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between animate-in slide-in-from-top duration-500">
+          <div className="bg-emerald-800 text-white p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in slide-in-from-top duration-500">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <Shield size={20} />
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <Shield className="w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider opacity-80">Admin Access</p>
-                <p className="text-sm font-medium">Manage churches and members</p>
+                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-80">Admin Access</p>
+                <p className="text-xs md:text-sm font-medium">Manage churches and members</p>
               </div>
             </div>
             <button 
               onClick={() => navigate("/admin")}
-              className="px-4 py-2 bg-white text-emerald-800 text-xs font-bold rounded-xl hover:bg-emerald-50 transition-all"
+              className="w-full md:w-auto px-6 py-2.5 bg-white text-emerald-800 text-xs font-bold rounded-xl hover:bg-emerald-50 transition-all shadow-md"
             >
               Go to Dashboard
             </button>

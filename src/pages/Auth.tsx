@@ -42,8 +42,25 @@ export default function Auth() {
     try {
       const trimmedEmail = email.trim().toLowerCase();
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, trimmedEmail, password);
+        const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+        const user = userCredential.user;
         toast.success("Welcome back!");
+        
+        // Fetch profile to determine redirection
+        const profileData = await api.getUserProfile(user.uid);
+        if (profileData) {
+          if (profileData.role === "admin") {
+            navigate("/admin");
+          } else if (profileData.role === "treasurer" && profileData.churchId) {
+            navigate(`/church/${profileData.churchId}/treasurer`);
+          } else if (profileData.role === "church_admin") {
+            navigate("/admin");
+          } else {
+            navigate("/");
+          }
+        } else {
+          navigate("/");
+        }
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
         const user = userCredential.user;
@@ -60,8 +77,8 @@ export default function Auth() {
           console.error("Error creating profile:", error);
         }
         toast.success("Account created successfully!");
+        navigate("/");
       }
-      navigate("/");
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -72,9 +89,25 @@ export default function Auth() {
   const handleGoogleSignIn = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
       toast.success("Signed in with Google!");
-      navigate("/");
+      
+      // Fetch profile to determine redirection
+      const profileData = await api.getUserProfile(user.uid);
+      if (profileData) {
+        if (profileData.role === "admin") {
+          navigate("/admin");
+        } else if (profileData.role === "treasurer" && profileData.churchId) {
+          navigate(`/church/${profileData.churchId}/treasurer`);
+        } else if (profileData.role === "church_admin") {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
+      } else {
+        navigate("/");
+      }
     } catch (error: any) {
       toast.error(error.message);
     }

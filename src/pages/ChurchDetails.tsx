@@ -362,49 +362,49 @@ export default function ChurchDetails() {
                 <p className="text-slate-600 text-sm leading-relaxed">{church.address}</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 py-8 border-y border-slate-100">
-                {[
-                  { id: "services", icon: Clock, label: "Services", count: services.length, public: true },
-                  { id: "ministers", icon: Users, label: "Ministers", count: ministers.length, public: true },
-                  { id: "announcements", icon: Bell, label: "News", count: announcements.length, public: true },
-                  { id: "livestreams", icon: Tv, label: "Live", count: livestreams.length, public: true },
-                  { id: "members", icon: Users, label: "Members", count: members.length, public: false },
-                  { id: "users", icon: Users, label: "Users", count: users.length, public: false },
-                ].filter(m => m.public || profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id) || (profile?.role === "church_end_user" && profile?.churchId === id)).map((module) => (
-                  <div key={module.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col gap-4 hover:shadow-md transition-all">
-                    <div className="flex items-start justify-between">
-                      <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center">
-                        <module.icon size={24} />
-                      </div>
-                      <span className="text-3xl font-bold text-slate-800">{module.count}</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 text-lg">{module.label}</h4>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Records</p>
-                    </div>
-                    <div className="flex flex-col gap-3 mt-2">
-                      <button
-                        onClick={() => {
-                          setModalTab(module.id as any);
-                          setShowModal(true);
-                          setModalFilteredData([]);
-                        }}
-                        className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-blue-100 transition-all"
-                      >
-                        <Eye size={16} /> View Information
-                      </button>
-                      {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
-                        <button
-                          onClick={() => navigate(`/admin?tab=${module.id === 'announcements' ? 'announcements' : module.id}&churchId=${id}`)}
-                          className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all"
-                        >
-                          <Database size={16} /> Manage Data
-                        </button>
-                      )}
-                    </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 py-8 border-y border-slate-100">
+            {[
+              { id: "services", icon: Clock, label: "Services", count: services.length, public: true },
+              { id: "ministers", icon: Users, label: "Ministers", count: ministers.length, public: true },
+              { id: "announcements", icon: Bell, label: "News", count: announcements.length, public: true },
+              { id: "livestreams", icon: Tv, label: "Live", count: livestreams.length, public: true },
+              { id: "members", icon: Users, label: "Members", count: members.length, public: false },
+              { id: "users", icon: Users, label: "Users", count: users.length, public: false },
+            ].filter(m => m.public || profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id) || (profile?.role === "church_end_user" && profile?.churchId === id)).map((module) => (
+              <div key={module.id} className="bg-white p-4 md:p-6 rounded-[24px] md:rounded-[32px] border border-slate-100 shadow-sm flex flex-col gap-3 md:gap-4 hover:shadow-md transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-50 text-emerald-700 rounded-xl md:rounded-2xl flex items-center justify-center">
+                    <module.icon className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
-                ))}
+                  <span className="text-2xl md:text-3xl font-bold text-slate-800">{module.count}</span>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-base md:text-lg">{module.label}</h4>
+                  <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Records</p>
+                </div>
+                <div className="flex flex-col gap-2 md:gap-3 mt-1 md:mt-2">
+                  <button
+                    onClick={() => {
+                      setModalTab(module.id as any);
+                      setShowModal(true);
+                      setModalFilteredData([]);
+                    }}
+                    className="w-full py-2.5 md:py-3 bg-blue-50 text-blue-600 rounded-xl text-[10px] md:text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-blue-100 transition-all"
+                  >
+                    <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" /> View
+                  </button>
+                  {(profile?.role === "admin" || (profile?.role === "church_admin" && profile?.churchId === id)) && (
+                    <button
+                      onClick={() => navigate(`/admin?tab=${module.id === 'announcements' ? 'announcements' : module.id}&churchId=${id}`)}
+                      className="w-full py-2.5 md:py-3 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] md:text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all"
+                    >
+                      <Database className="w-3.5 h-3.5 md:w-4 md:h-4" /> Manage
+                    </button>
+                  )}
+                </div>
               </div>
+            ))}
+          </div>
 
               <div className="border-b border-slate-100">
                 <div className="flex flex-wrap items-center gap-4 py-4">

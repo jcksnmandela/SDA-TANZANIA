@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, MapPin, Bell, Tv, User, Shield } from "lucide-react";
+import { Home, MapPin, Bell, Tv, User, Shield, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../hooks/useAuth";
 import { cn } from "../lib/utils";
@@ -25,6 +25,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   if (isAdmin || isChurchAdmin) {
     navItems.push({ path: "/admin", icon: Shield, label: t("Manage") });
+  }
+
+  if (profile?.role === "treasurer" && profile?.churchId) {
+    navItems.push({ 
+      path: `/church/${profile.churchId}/treasurer`, 
+      icon: DollarSign, 
+      label: t("Accounts") 
+    });
   }
 
   return (

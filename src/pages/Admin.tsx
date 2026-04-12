@@ -4,7 +4,7 @@ import { initialChurches } from "../data/initialChurches";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye, DollarSign, List } from "lucide-react";
+import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye, DollarSign, List, TrendingUp, PieChart as PieChartIcon } from "lucide-react";
 import { cn, formatDate } from "../lib/utils";
 import { useDownloads } from "../contexts/DownloadContext";
 import { jsPDF } from "jspdf";
@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import firebaseConfig from "../../firebase-applet-config.json";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
 export default function Admin() {
   const { profile, isAdmin, isChurchAdmin, isTreasurer, loading: authLoading } = useAuth();
@@ -37,6 +38,12 @@ export default function Admin() {
       setSelectedChurchFilter(churchId);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!authLoading && isTreasurer && !isAdmin && !isChurchAdmin) {
+      setActiveTab("accounts");
+    }
+  }, [authLoading, isTreasurer, isAdmin, isChurchAdmin]);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
   const [featureFilter, setFeatureFilter] = useState("");
@@ -247,12 +254,12 @@ export default function Admin() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (authLoading || (!isAdmin && !isChurchAdmin)) return;
+      if (authLoading || (!isAdmin && !isChurchAdmin && !isTreasurer)) return;
 
       try {
         // Fetch Churches
         const churchesList = await api.getChurches();
-        if (!isAdmin && isChurchAdmin && profile?.churchId) {
+        if (!isAdmin && (isChurchAdmin || isTreasurer) && profile?.churchId) {
           setChurches(churchesList.filter(c => c.id === profile.churchId));
         } else {
           setChurches(churchesList);
@@ -263,7 +270,7 @@ export default function Admin() {
 
       try {
         // Fetch Members
-        const membersData = await api.getEntities("members", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        const membersData = await api.getEntities("members", (!isAdmin && (isChurchAdmin || isTreasurer)) ? profile?.churchId : undefined);
         setMembers(membersData);
       } catch (error) {
         console.error("Error fetching members:", error);
@@ -271,7 +278,7 @@ export default function Admin() {
 
       try {
         // Fetch Services
-        const servicesData = await api.getEntities("services", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        const servicesData = await api.getEntities("services", (!isAdmin && (isChurchAdmin || isTreasurer)) ? profile?.churchId : undefined);
         setServices(servicesData);
       } catch (error) {
         console.error("Error fetching services:", error);
@@ -279,7 +286,7 @@ export default function Admin() {
 
       try {
         // Fetch Ministers
-        const ministersData = await api.getEntities("ministers", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        const ministersData = await api.getEntities("ministers", (!isAdmin && (isChurchAdmin || isTreasurer)) ? profile?.churchId : undefined);
         setMinisters(ministersData);
       } catch (error) {
         console.error("Error fetching ministers:", error);
@@ -287,7 +294,7 @@ export default function Admin() {
 
       try {
         // Fetch Announcements
-        const announcementsData = await api.getEntities("announcements", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        const announcementsData = await api.getEntities("announcements", (!isAdmin && (isChurchAdmin || isTreasurer)) ? profile?.churchId : undefined);
         setAnnouncements(announcementsData);
       } catch (error) {
         console.error("Error fetching announcements:", error);
@@ -295,7 +302,7 @@ export default function Admin() {
 
       try {
         // Fetch Livestreams
-        const livestreamsData = await api.getEntities("livestreams", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        const livestreamsData = await api.getEntities("livestreams", (!isAdmin && (isChurchAdmin || isTreasurer)) ? profile?.churchId : undefined);
         setLivestreams(livestreamsData);
       } catch (error) {
         console.error("Error fetching livestreams:", error);
@@ -303,7 +310,7 @@ export default function Admin() {
 
       try {
         // Fetch Offering Categories
-        const categoriesData = await api.getEntities("offering_categories", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        const categoriesData = await api.getEntities("offering_categories", (!isAdmin && (isChurchAdmin || isTreasurer)) ? profile?.churchId : undefined);
         setOfferingCategories(categoriesData);
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -311,7 +318,7 @@ export default function Admin() {
 
       try {
         // Fetch Offerings
-        const offeringsData = await api.getEntities("offerings", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        const offeringsData = await api.getEntities("offerings", (!isAdmin && (isChurchAdmin || isTreasurer)) ? profile?.churchId : undefined);
         setOfferings(offeringsData);
       } catch (error) {
         console.error("Error fetching offerings:", error);
@@ -336,9 +343,65 @@ export default function Admin() {
     // In a real app, we might set up a polling interval or WebSocket here
   }, [authLoading, isAdmin, isChurchAdmin, profile?.churchId]);
 
-  const regions = [
-    "Arusha", "Dar es Salaam", "Dodoma", "Geita", "Iringa", "Kagera", "Katavi", "Kigoma", "Kilimanjaro", "Lindi", "Manyara", "Mara", "Mbeya", "Morogoro", "Mtwara", "Mwanza", "Njombe", "Pemba North", "Pemba South", "Pwani", "Rukwa", "Ruvuma", "Shinyanga", "Simiyu", "Singida", "Songwe", "Tabora", "Tanga", "Zanzibar North", "Zanzibar South and Central", "Zanzibar West"
-  ];
+  const regionsWithDistricts: Record<string, string[]> = {
+    "Arusha": ["Arusha City", "Arusha DC", "Meru", "Monduli", "Karatu", "Ngorongoro", "Longido"],
+    "Dar es Salaam": ["Ilala", "Kinondoni", "Temeke", "Kigamboni", "Ubungo"],
+    "Dodoma": ["Dodoma City", "Bahi", "Chamwino", "Chemba", "Kondoa", "Kongwa", "Mpwapwa"],
+    "Geita": ["Geita Town", "Geita DC", "Bukombe", "Chato", "Mbogwe", "Nyang'hwale"],
+    "Iringa": ["Iringa Municipal", "Iringa DC", "Kilolo", "Mufindi"],
+    "Kagera": ["Bukoba Municipal", "Bukoba DC", "Biharamulo", "Karagwe", "Kyerwa", "Missenyi", "Muleba", "Ngara"],
+    "Katavi": ["Mpanda Town", "Mpanda DC", "Mlele"],
+    "Kigoma": ["Kigoma-Ujiji Municipal", "Kigoma DC", "Kasulu Town", "Kasulu DC", "Kibondo", "Kakonko", "Uvinza"],
+    "Kilimanjaro": ["Moshi Municipal", "Moshi DC", "Hai", "Siha", "Rombo", "Mwanga", "Same"],
+    "Lindi": ["Lindi Municipal", "Lindi DC", "Kilwa", "Liwale", "Nachingwewe", "Ruangwa"],
+    "Manyara": ["Babati Town", "Babati DC", "Hanang", "Kiteto", "Mbulu", "Simanjiro"],
+    "Mara": ["Musoma Municipal", "Musoma DC", "Bunda", "Butiama", "Rorya", "Serengeti", "Tarime"],
+    "Mbeya": ["Mbeya City", "Mbeya DC", "Chunya", "Kyela", "Mbarali", "Rungwe"],
+    "Morogoro": ["Morogoro Municipal", "Morogoro DC", "Gairo", "Kilombero", "Kilosa", "Mvomero", "Ulanga", "Malinyi"],
+    "Mtwara": ["Mtwara Municipal", "Mtwara DC", "Masasi Town", "Masasi DC", "Nanyumbu", "Newala", "Tandahimba"],
+    "Mwanza": ["Ilemela", "Nyamagana", "Buchosa", "Magu", "Misungwi", "Kwimba", "Sengerema", "Ukerewe"],
+    "Njombe": ["Njombe Town", "Njombe DC", "Ludewa", "Makete", "Wanging'ombe"],
+    "Pemba North": ["Wete", "Micheweni"],
+    "Pemba South": ["Chake Chake", "Mkoani"],
+    "Pwani": ["Kibaha Town", "Kibaha DC", "Bagamoyo", "Kisarawe", "Mafia", "Mkuranga", "Rufiji"],
+    "Rukwa": ["Sumbawanga Municipal", "Sumbawanga DC", "Kalambo", "Nkasi"],
+    "Ruvuma": ["Songea Municipal", "Songea DC", "Mbinga", "Namtumbo", "Nyasa", "Tunduru"],
+    "Shinyanga": ["Shinyanga Municipal", "Shinyanga DC", "Kahama Town", "Kahama DC", "Kishapu"],
+    "Simiyu": ["Bariadi Town", "Bariadi DC", "Busega", "Itilima", "Maswa", "Meatu"],
+    "Singida": ["Singida Municipal", "Singida DC", "Ikungi", "Iramba", "Manyoni", "Mkalama"],
+    "Songwe": ["Mbozi", "Ileje", "Momba", "Songwe"],
+    "Tabora": ["Tabora Municipal", "Uyui", "Igunga", "Kaliua", "Nzega", "Sikonge", "Urambo"],
+    "Tanga": ["Tanga City", "Handeni Town", "Handeni DC", "Kilindi", "Korogwe Town", "Korogwe DC", "Lushoto", "Mkinga", "Muheza", "Pangani"],
+    "Zanzibar North": ["Kaskazini A", "Kaskazini B"],
+    "Zanzibar South and Central": ["Kati", "Kusini"],
+    "Zanzibar West": ["Mjini", "Magharibi"]
+  };
+
+  const regions = Object.keys(regionsWithDistricts);
+
+  const filteredOfferings = offerings.filter(off => !selectedChurchFilter || off.churchId === selectedChurchFilter);
+  const totalOfferings = filteredOfferings.reduce((sum, off) => sum + Number(off.amount), 0);
+  
+  const offeringsByCategory = offeringCategories
+    .filter(cat => !selectedChurchFilter || cat.churchId === selectedChurchFilter)
+    .map(cat => ({
+      name: cat.name,
+      value: filteredOfferings.filter(off => off.categoryId === cat.id).reduce((sum, off) => sum + Number(off.amount), 0)
+    }))
+    .filter(item => item.value > 0);
+
+  const offeringsByMonth = filteredOfferings.reduce((acc: any, off) => {
+    const month = new Date(off.date).toLocaleString('default', { month: 'short' });
+    acc[month] = (acc[month] || 0) + Number(off.amount);
+    return acc;
+  }, {});
+
+  const chartData = Object.keys(offeringsByMonth).map(month => ({
+    name: month,
+    amount: offeringsByMonth[month]
+  }));
+
+  const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#064e3b', '#065f46', '#047857'];
 
   const handleAddChurch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1033,37 +1096,37 @@ export default function Admin() {
 
   return (
     <div className="p-4 space-y-6 max-w-7xl mx-auto">
-      <div className="bg-emerald-800 text-white p-6 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
+      <div className="bg-emerald-800 text-white p-4 md:p-6 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
         <div>
-          <h2 className="text-2xl font-bold">{isAdmin ? "Super Admin Panel" : "Church Admin Panel"}</h2>
-          <p className="text-emerald-100 text-sm opacity-80">
+          <h2 className="text-xl md:text-2xl font-bold">{isAdmin ? "Super Admin Panel" : "Church Admin Panel"}</h2>
+          <p className="text-emerald-100 text-xs md:text-sm opacity-80">
             {isAdmin ? "Full system management" : `Managing ${churches.find(c => c.id === profile?.churchId)?.name || "Church"}`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           {isChurchAdmin && (
             <button
               onClick={() => setSelectedChurchId(profile?.churchId || null)}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold"
+              className="flex-1 md:flex-none bg-white/20 hover:bg-white/30 px-3 md:px-4 py-2 rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] md:text-xs font-bold"
             >
-              <ChurchIcon size={16} /> Church Dashboard
+              <ChurchIcon size={14} /> Church Dashboard
             </button>
           )}
           {(isAdmin || isChurchAdmin) && (
             <button
               onClick={generateFullReport}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold shadow-lg shadow-emerald-900/20"
+              className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-3 md:px-4 py-2 rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] md:text-xs font-bold shadow-lg shadow-emerald-900/20"
             >
-              <FileText size={16} /> {isAdmin ? "Full System Report" : "Church Report"}
+              <FileText size={14} /> {isAdmin ? "Full Report" : "Church Report"}
             </button>
           )}
           {isAdmin && (
             <button
               onClick={handleSeedData}
               disabled={loading}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold"
+              className="flex-1 md:flex-none bg-white/20 hover:bg-white/30 px-3 md:px-4 py-2 rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] md:text-xs font-bold"
             >
-              <Database size={16} /> Seed Data
+              <Database size={14} /> Seed Data
             </button>
           )}
         </div>
@@ -1071,14 +1134,14 @@ export default function Admin() {
 
       <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar no-print snap-x">
         {[
-          { id: "churches", icon: ChurchIcon, label: "Churches" },
-          { id: "users", icon: Users, label: "Users" },
-          { id: "members", icon: Users, label: "Members" },
-          { id: "ministers", icon: Users, label: "Ministers" },
-          { id: "services", icon: Bell, label: "Services" },
-          { id: "announcements", icon: Bell, label: "News" },
-          { id: "livestreams", icon: Tv, label: "Live" },
-          { id: "accounts", icon: DollarSign, label: "Church Accounts" },
+          isAdmin && { id: "churches", icon: ChurchIcon, label: "Churches" },
+          isAdmin && { id: "users", icon: Users, label: "Users" },
+          (isAdmin || isChurchAdmin || isTreasurer) && { id: "members", icon: Users, label: "Members" },
+          (isAdmin || isChurchAdmin) && { id: "ministers", icon: ChurchIcon, label: "Ministers" },
+          (isAdmin || isChurchAdmin) && { id: "services", icon: Bell, label: "Services" },
+          (isAdmin || isChurchAdmin) && { id: "announcements", icon: Bell, label: "News" },
+          (isAdmin || isChurchAdmin) && { id: "livestreams", icon: Tv, label: "Live" },
+          (isAdmin || isChurchAdmin || isTreasurer) && { id: "accounts", icon: DollarSign, label: "Church Accounts" },
           isAdmin && { id: "settings", icon: Database, label: "Settings" },
         ].filter(Boolean).map((tab: any) => (
           <button
@@ -1130,7 +1193,7 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {[
                     { id: 'users', label: 'Users', icon: Users, count: users.filter(u => u.churchId === selectedChurchId).length },
                     { id: 'members', label: 'Members', icon: Users, count: members.filter(m => m.churchId === selectedChurchId).length },
@@ -1141,28 +1204,28 @@ export default function Admin() {
                   ].map(stat => (
                     <div
                       key={stat.id}
-                      className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm hover:shadow-md transition-all flex flex-col gap-4"
+                      className="p-4 md:p-6 bg-white border border-slate-100 rounded-[24px] md:rounded-[32px] shadow-sm hover:shadow-md transition-all flex flex-col gap-3 md:gap-4"
                     >
                       <div className="flex items-start justify-between">
-                        <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center">
-                          <stat.icon size={24} />
+                        <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-50 text-emerald-700 rounded-xl md:rounded-2xl flex items-center justify-center">
+                          <stat.icon size={20} />
                         </div>
-                        <span className="text-3xl font-bold text-slate-800">{stat.count}</span>
+                        <span className="text-2xl md:text-3xl font-bold text-slate-800">{stat.count}</span>
                       </div>
                       <div>
-                        <h4 className="font-bold text-slate-800 text-lg">{stat.label}</h4>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Records</p>
+                        <h4 className="font-bold text-slate-800 text-base md:text-lg">{stat.label}</h4>
+                        <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Records</p>
                       </div>
-                      <div className="flex flex-col gap-3 mt-2">
+                      <div className="flex flex-col gap-2 md:gap-3 mt-1 md:mt-2">
                         <button
                           onClick={() => {
                             setSelectedChurchFilter(selectedChurchId);
                             setActiveTab(stat.id as any);
                             setSelectedChurchId(null);
                           }}
-                          className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-blue-100 transition-all"
+                          className="w-full py-2.5 md:py-3 bg-blue-50 text-blue-600 rounded-xl text-[10px] md:text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-blue-100 transition-all"
                         >
-                          <Eye size={16} /> View Information
+                          <Eye size={14} /> View
                         </button>
                         <button
                           onClick={() => {
@@ -1170,9 +1233,9 @@ export default function Admin() {
                             setActiveTab(stat.id as any);
                             setSelectedChurchId(null);
                           }}
-                          className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all"
+                          className="w-full py-2.5 md:py-3 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] md:text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all"
                         >
-                          <Database size={16} /> Manage Data
+                          <Database size={14} /> Manage
                         </button>
                       </div>
                     </div>
@@ -1202,21 +1265,25 @@ export default function Admin() {
                     required
                     className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
                     value={churchForm.region}
-                    onChange={e => setChurchForm({ ...churchForm, region: e.target.value })}
+                    onChange={e => setChurchForm({ ...churchForm, region: e.target.value, district: "" })}
                   >
                     <option value="">Select Region</option>
                     {regions.map(r => (
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
-                  <input
-                    type="text"
-                    placeholder="District"
+                  <select
                     required
                     className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
                     value={churchForm.district}
                     onChange={e => setChurchForm({ ...churchForm, district: e.target.value })}
-                  />
+                    disabled={!churchForm.region}
+                  >
+                    <option value="">Select District</option>
+                    {churchForm.region && regionsWithDistricts[churchForm.region]?.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 </div>
                 <input
                   type="text"
@@ -2286,6 +2353,107 @@ export default function Admin() {
         )}
         {activeTab === "accounts" && (
           <div className="space-y-8">
+            {/* Dashboard Summary Section */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm flex flex-col gap-2">
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center">
+                  <DollarSign size={24} />
+                </div>
+                <p className="text-slate-500 text-sm font-medium">Total Offerings</p>
+                <h4 className="text-2xl font-bold text-slate-800">
+                  {new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 }).format(totalOfferings)}
+                </h4>
+              </div>
+              <div className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm flex flex-col gap-2">
+                <div className="w-12 h-12 bg-blue-50 text-blue-700 rounded-2xl flex items-center justify-center">
+                  <List size={24} />
+                </div>
+                <p className="text-slate-500 text-sm font-medium">Categories</p>
+                <h4 className="text-2xl font-bold text-slate-800">
+                  {offeringCategories.filter(cat => !selectedChurchFilter || cat.churchId === selectedChurchFilter).length}
+                </h4>
+              </div>
+              <div className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm flex flex-col gap-2">
+                <div className="w-12 h-12 bg-purple-50 text-purple-700 rounded-2xl flex items-center justify-center">
+                  <TrendingUp size={24} />
+                </div>
+                <p className="text-slate-500 text-sm font-medium">Avg. Offering</p>
+                <h4 className="text-2xl font-bold text-slate-800">
+                  {new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 }).format(filteredOfferings.length > 0 ? totalOfferings / filteredOfferings.length : 0)}
+                </h4>
+              </div>
+              <div className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm flex flex-col gap-2">
+                <div className="w-12 h-12 bg-orange-50 text-orange-700 rounded-2xl flex items-center justify-center">
+                  <Users size={24} />
+                </div>
+                <p className="text-slate-500 text-sm font-medium">Contributors</p>
+                <h4 className="text-2xl font-bold text-slate-800">
+                  {new Set(filteredOfferings.map(o => o.memberId)).size}
+                </h4>
+              </div>
+            </div>
+
+            {/* Charts Section */}
+            <div className="grid lg:grid-cols-2 gap-8">
+              <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+                <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
+                  <TrendingUp size={20} className="text-emerald-600" />
+                  Offering Trends (Monthly)
+                </h3>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                        cursor={{ fill: '#f8fafc' }}
+                      />
+                      <Bar dataKey="amount" fill="#059669" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+                <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
+                  <PieChartIcon size={20} className="text-emerald-600" />
+                  Offerings by Category
+                </h3>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={offeringsByCategory}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {offeringsByCategory.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  {offeringsByCategory.slice(0, 4).map((entry, index) => (
+                    <div key={entry.name} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                      <span className="text-xs text-slate-600 truncate">{entry.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-2 gap-8">
               {/* Offering Categories Management */}
               <div className="space-y-4">
@@ -2316,7 +2484,7 @@ export default function Admin() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-6 bg-emerald-700 text-white rounded-xl font-bold hover:bg-emerald-800 transition-all disabled:opacity-50"
+                    className="px-6 bg-emerald-700 text-white rounded-xl font-bold hover:bg-emerald-800 transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {loading ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
                   </button>
@@ -2490,7 +2658,7 @@ export default function Admin() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-bold shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-bold shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
                       {loading ? <Loader2 className="animate-spin" size={20} /> : "Register Offering"}
                     </button>
