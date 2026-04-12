@@ -97,6 +97,31 @@
       },
       "required": ["churchId", "url", "status"]
     },
+    "OfferingCategory": {
+      "title": "OfferingCategory",
+      "description": "Categories for church offerings",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["churchId", "name"]
+    },
+    "Offering": {
+      "title": "Offering",
+      "description": "Member offering records",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "memberId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["churchId", "memberId", "categoryId", "amount", "date"]
+    },
     "AppConfig": {
       "title": "AppConfig",
       "description": "Global application configuration",
@@ -116,6 +141,8 @@
     "/announcements/{announcementId}": { "schema": "Announcement", "description": "Church announcements" },
     "/livestreams/{livestreamId}": { "schema": "Livestream", "description": "Church live streams" },
     "/members/{memberId}": { "schema": "Member", "description": "Church members directory" },
+    "/offering_categories/{categoryId}": { "schema": "OfferingCategory", "description": "Offering categories" },
+    "/offerings/{offeringId}": { "schema": "Offering", "description": "Offering records" },
     "/config/global": { "schema": "AppConfig", "description": "Global settings" }
   }
 }

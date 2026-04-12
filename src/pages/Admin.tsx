@@ -4,7 +4,7 @@ import { initialChurches } from "../data/initialChurches";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye, DollarSign } from "lucide-react";
+import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye, DollarSign, List } from "lucide-react";
 import { cn, formatDate } from "../lib/utils";
 import { useDownloads } from "../contexts/DownloadContext";
 import { jsPDF } from "jspdf";
@@ -74,6 +74,16 @@ export default function Admin() {
   const [livestreamForm, setLivestreamForm] = useState({
     id: "", url: "", status: "Offline" as any, churchId: ""
   });
+
+  const [offeringCategoryForm, setOfferingCategoryForm] = useState({
+    id: "", name: "", churchId: ""
+  });
+
+  const [offeringForm, setOfferingForm] = useState({
+    id: "", memberId: "", categoryId: "", amount: "", date: new Date().toISOString().split('T')[0], churchId: ""
+  });
+
+  const [selectedMember, setSelectedMember] = useState<any | null>(null);
 
   const [appSettings, setAppSettings] = useState({ maintenanceMode: false, publicSignups: true });
 
@@ -225,6 +235,8 @@ export default function Admin() {
   const [ministers, setMinisters] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [livestreams, setLivestreams] = useState<any[]>([]);
+  const [offeringCategories, setOfferingCategories] = useState<any[]>([]);
+  const [offerings, setOfferings] = useState<any[]>([]);
 
   useEffect(() => {
     if (!authLoading && !isAdmin && !isChurchAdmin) {
@@ -287,6 +299,22 @@ export default function Admin() {
         setLivestreams(livestreamsData);
       } catch (error) {
         console.error("Error fetching livestreams:", error);
+      }
+
+      try {
+        // Fetch Offering Categories
+        const categoriesData = await api.getEntities("offering_categories", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        setOfferingCategories(categoriesData);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+
+      try {
+        // Fetch Offerings
+        const offeringsData = await api.getEntities("offerings", (!isAdmin && isChurchAdmin) ? profile?.churchId : undefined);
+        setOfferings(offeringsData);
+      } catch (error) {
+        console.error("Error fetching offerings:", error);
       }
     };
     fetchData();
@@ -691,6 +719,60 @@ export default function Admin() {
       toast.success("Livestream deleted");
     } catch (error: any) {
       toast.error(error.message);
+    }
+  };
+
+  const handleAddOfferingCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const churchId = isChurchAdmin || isTreasurer ? profile?.churchId : offeringCategoryForm.churchId;
+      if (!churchId) throw new Error("Church ID is required");
+
+      const data = { name: offeringCategoryForm.name, churchId, createdAt: new Date().toISOString() };
+      
+      if (offeringCategoryForm.id) {
+        await api.updateEntity("offering_categories", offeringCategoryForm.id, data);
+        setOfferingCategories(offeringCategories.map(c => c.id === offeringCategoryForm.id ? { ...c, ...data } : c));
+        toast.success("Category updated");
+      } else {
+        const result = await api.addEntity("offering_categories", data);
+        setOfferingCategories([{ id: result.id, ...data }, ...offeringCategories]);
+        toast.success("Category created");
+      }
+      setOfferingCategoryForm({ id: "", name: "", churchId: "" });
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddOffering = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const churchId = isChurchAdmin || isTreasurer ? profile?.churchId : offeringForm.churchId;
+      if (!churchId) throw new Error("Church ID is required");
+
+      const data = { 
+        memberId: offeringForm.memberId,
+        categoryId: offeringForm.categoryId,
+        amount: parseFloat(offeringForm.amount),
+        date: offeringForm.date,
+        churchId,
+        createdAt: new Date().toISOString()
+      };
+      
+      const result = await api.addEntity("offerings", data);
+      setOfferings([{ id: result.id, ...data }, ...offerings]);
+      toast.success("Offering registered successfully");
+      setOfferingForm({ id: "", memberId: "", categoryId: "", amount: "", date: new Date().toISOString().split('T')[0], churchId: "" });
+      setSelectedMember(null);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1572,6 +1654,13 @@ export default function Admin() {
                     </div>
                     <div className="flex items-center gap-1">
                       <button 
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Member Details"
+                        onClick={() => setSelectedMember(member)}
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button 
                         className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                         title="Edit Member"
                         onClick={() => setMemberForm({
@@ -2197,16 +2286,217 @@ export default function Admin() {
         )}
         {activeTab === "accounts" && (
           <div className="space-y-8">
-            <div className="p-12 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-              <DollarSign size={48} className="mx-auto text-slate-300 mb-4" />
-              <h3 className="font-bold text-lg text-slate-800">Church Accounts</h3>
-              <p className="text-slate-500 mb-6">Manage your church's finances and offerings.</p>
-              <Link 
-                to="/admin?tab=accounts&action=create-category"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors"
-              >
-                <Plus size={20} /> Create Offering Category
-              </Link>
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Offering Categories Management */}
+              <div className="space-y-4">
+                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                  <List size={20} className="text-emerald-600" />
+                  Manage Offering Categories
+                </h3>
+                <form onSubmit={handleAddOfferingCategory} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Category Name (e.g. Tithe, Building Fund)"
+                    required
+                    className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+                    value={offeringCategoryForm.name}
+                    onChange={e => setOfferingCategoryForm({ ...offeringCategoryForm, name: e.target.value })}
+                  />
+                  {(isAdmin || !profile?.churchId) && (
+                    <select
+                      className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+                      value={offeringCategoryForm.churchId}
+                      onChange={e => setOfferingCategoryForm({ ...offeringCategoryForm, churchId: e.target.value })}
+                      required
+                    >
+                      <option value="">Select Church</option>
+                      {churches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 bg-emerald-700 text-white rounded-xl font-bold hover:bg-emerald-800 transition-all disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
+                  </button>
+                </form>
+
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                  {offeringCategories
+                    .filter(cat => !selectedChurchFilter || cat.churchId === selectedChurchFilter)
+                    .map(cat => (
+                    <div key={cat.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-slate-800">{cat.name}</p>
+                        {isAdmin && <p className="text-[10px] text-slate-400">{churches.find(c => c.id === cat.churchId)?.name}</p>}
+                      </div>
+                      <div className="flex gap-1">
+                        <button 
+                          onClick={() => setOfferingCategoryForm(cat)}
+                          className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                        >
+                          <Database size={16} />
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if(window.confirm("Delete category?")) {
+                              await api.deleteEntity("offering_categories", cat.id);
+                              setOfferingCategories(offeringCategories.filter(c => c.id !== cat.id));
+                              toast.success("Category deleted");
+                            }
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Offerings List */}
+              <div className="space-y-4">
+                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                  <DollarSign size={20} className="text-emerald-600" />
+                  Recent Offerings
+                </h3>
+                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+                  {offerings
+                    .filter(off => !selectedChurchFilter || off.churchId === selectedChurchFilter)
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map(off => (
+                    <div key={off.id} className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-slate-800">
+                          {members.find(m => m.id === off.memberId)?.fullName || "Unknown Member"}
+                        </p>
+                        <p className="text-xs text-emerald-600 font-bold">
+                          {offeringCategories.find(c => c.id === off.categoryId)?.name || "General"}
+                        </p>
+                        <p className="text-[10px] text-slate-400">{formatDate(off.date)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-slate-800 text-lg">
+                          {new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS' }).format(off.amount)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {offerings.length === 0 && (
+                    <p className="text-center py-12 text-slate-400 italic">No offerings registered yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Member Details & Offering Registration Modal */}
+        {selectedMember && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+              <div className="bg-emerald-800 p-8 text-white relative">
+                <button 
+                  onClick={() => setSelectedMember(null)}
+                  className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all"
+                >
+                  <Plus className="rotate-45" size={24} />
+                </button>
+                <div className="flex items-center gap-6">
+                  <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md border border-white/10">
+                    <Users size={40} />
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold">{selectedMember.fullName}</h3>
+                    <p className="text-emerald-100 opacity-80 flex items-center gap-2 mt-1">
+                      <MapPin size={14} /> {selectedMember.address || "No address provided"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 space-y-8">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Phone Number</p>
+                    <p className="font-bold text-slate-800">{selectedMember.phone || "N/A"}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Email Address</p>
+                    <p className="font-bold text-slate-800">{selectedMember.email || "N/A"}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Membership Status</p>
+                    <span className={cn(
+                      "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase mt-1",
+                      selectedMember.status === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
+                    )}>
+                      {selectedMember.status}
+                    </span>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Registered On</p>
+                    <p className="font-bold text-slate-800">{formatDate(selectedMember.createdAt)}</p>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <DollarSign size={20} className="text-emerald-600" />
+                    Register New Offering
+                  </h4>
+                  <form onSubmit={handleAddOffering} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Category</label>
+                        <select
+                          required
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={offeringForm.categoryId}
+                          onChange={e => setOfferingForm({ ...offeringForm, categoryId: e.target.value, memberId: selectedMember.id, churchId: selectedMember.churchId })}
+                        >
+                          <option value="">Select Category</option>
+                          {offeringCategories
+                            .filter(cat => cat.churchId === selectedMember.churchId)
+                            .map(cat => (
+                              <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Amount (TZS)</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          required
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={offeringForm.amount}
+                          onChange={e => setOfferingForm({ ...offeringForm, amount: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Date</label>
+                      <input
+                        type="date"
+                        required
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={offeringForm.date}
+                        onChange={e => setOfferingForm({ ...offeringForm, date: e.target.value })}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-bold shadow-lg shadow-emerald-700/20 hover:bg-emerald-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="animate-spin" size={20} /> : "Register Offering"}
+                    </button>
+                  </form>
+                </div>
+              </div>
             </div>
           </div>
         )}

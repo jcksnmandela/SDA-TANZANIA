@@ -56,9 +56,25 @@ service cloud.firestore {
     }
 
     match /members/{memberId} {
-      allow read: if isAuthenticated() && (isAdmin() || isChurchAdmin(resource.data.churchId));
-      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
-      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow read: if isAuthenticated() && (isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId));
+      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId) || isTreasurer(request.resource.data.churchId);
+      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+    }
+
+    match /offering_categories/{categoryId} {
+      allow read: if isAuthenticated() && (isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId));
+      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId) || isTreasurer(request.resource.data.churchId);
+      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+    }
+
+    match /offerings/{offeringId} {
+      allow read: if isAuthenticated() && (isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId));
+      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId) || isTreasurer(request.resource.data.churchId);
+      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+    }
+    
+    function isTreasurer(churchId) {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'treasurer' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.churchId == churchId;
     }
     
     match /config/{configId} {
