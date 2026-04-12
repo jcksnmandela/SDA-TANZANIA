@@ -2,10 +2,6 @@ import express from "express";
 import path from "path";
 import cors from "cors";
 import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
@@ -29,11 +25,8 @@ async function startServer() {
   });
 
   if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "preview") {
-    // When compiled to dist/server.cjs, __dirname is the dist folder.
-    // When running as server.ts, __dirname is the root and we need to look in dist.
-    const distPath = fs.existsSync(path.join(__dirname, "index.html")) 
-      ? __dirname 
-      : path.resolve(__dirname, "dist");
+    // In production, we serve from the dist folder relative to the current working directory
+    const distPath = path.join(process.cwd(), "dist");
     
     console.log(`[Production] Serving static files from: ${distPath}`);
 
