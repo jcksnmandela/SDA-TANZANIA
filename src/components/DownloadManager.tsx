@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useDownloads, DownloadItem } from '../contexts/DownloadContext';
-import { Download, X, FileText, FileSpreadsheet, Database, Image as ImageIcon, Trash2, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Download, X, FileText, FileSpreadsheet, Database, Image as ImageIcon, Trash2, ExternalLink, CheckCircle2, Maximize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const DownloadManager: React.FC = () => {
   const { downloads, removeDownload, clearDownloads } = useDownloads();
   const [isOpen, setIsOpen] = useState(false);
   const [activeNotification, setActiveNotification] = useState<DownloadItem | null>(null);
+  const [viewingItem, setViewingItem] = useState<DownloadItem | null>(null);
 
   // Watch for new downloads to show notification
   useEffect(() => {
@@ -37,7 +38,12 @@ export const DownloadManager: React.FC = () => {
     }
   };
 
-  const handleOpen = (url: string, name: string) => {
+  const handleOpen = (item: DownloadItem) => {
+    setViewingItem(item);
+    setActiveNotification(null);
+  };
+
+  const triggerDownload = (url: string, name: string) => {
     const link = document.createElement('a');
     link.href = url;
     link.download = name;
@@ -45,7 +51,6 @@ export const DownloadManager: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setActiveNotification(null);
   };
 
   if (downloads.length === 0 && !isOpen) return null;
@@ -61,7 +66,7 @@ export const DownloadManager: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-emerald-100 p-4 flex items-center gap-4 max-w-md w-full"
-              onClick={() => handleOpen(activeNotification.url, activeNotification.name)}
+              onClick={() => handleOpen(activeNotification)}
             >
               <div className="bg-emerald-100 p-2 rounded-xl text-emerald-600">
                 <CheckCircle2 size={24} />
@@ -74,11 +79,11 @@ export const DownloadManager: React.FC = () => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleOpen(activeNotification.url, activeNotification.name);
+                    handleOpen(activeNotification);
                   }}
                   className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm"
                 >
-                  Open
+                  View
                 </button>
                 <button
                   onClick={(e) => {
@@ -151,7 +156,7 @@ export const DownloadManager: React.FC = () => {
                 downloads.map((download) => (
                   <div
                     key={download.id}
-                    onClick={() => handleOpen(download.url, download.name)}
+                    onClick={() => handleOpen(download)}
                     className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all group cursor-pointer"
                   >
                     <div className="p-2 bg-white rounded-lg shadow-sm group-hover:scale-110 transition-transform">
@@ -169,12 +174,22 @@ export const DownloadManager: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleOpen(download.url, download.name);
+                          handleOpen(download);
                         }}
                         className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
                         title="Open/View"
                       >
-                        <ExternalLink size={14} />
+                        <Maximize2 size={14} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerDownload(download.url, download.name);
+                        }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                        title="Download"
+                      >
+                        <Download size={14} />
                       </button>
                       <button
                         onClick={(e) => {
@@ -201,6 +216,101 @@ export const DownloadManager: React.FC = () => {
         )}
       </AnimatePresence>
       </div>
+
+      {/* File Viewer Modal */}
+      <AnimatePresence>
+        {viewingItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10001] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 md:p-8 no-print"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white w-full max-w-5xl h-full max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-xl shadow-sm">
+                    {getIcon(viewingItem.type)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm md:text-base truncate max-w-[200px] md:max-w-md">
+                      {viewingItem.name}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                      {viewingItem.type} File • {new Date(viewingItem.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => triggerDownload(viewingItem.url, viewingItem.name)}
+                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors flex items-center gap-2 text-xs font-bold"
+                  >
+                    <Download size={18} />
+                    <span className="hidden sm:inline">Download</span>
+                  </button>
+                  <button
+                    onClick={() => setViewingItem(null)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content Viewer */}
+              <div className="flex-1 bg-slate-100 overflow-auto flex items-center justify-center relative">
+                {viewingItem.type.toLowerCase().match(/image|png|jpg|jpeg/) ? (
+                  <img
+                    src={viewingItem.url}
+                    alt={viewingItem.name}
+                    className="max-w-full max-h-full object-contain shadow-lg"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : viewingItem.type.toLowerCase() === 'pdf' ? (
+                  <iframe
+                    src={`${viewingItem.url}#toolbar=0`}
+                    className="w-full h-full border-none bg-white"
+                    title={viewingItem.name}
+                  />
+                ) : (
+                  <div className="text-center p-8 bg-white rounded-3xl shadow-xl max-w-sm mx-4">
+                    <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                      {getIcon(viewingItem.type)}
+                    </div>
+                    <h4 className="font-bold text-slate-800 mb-2">Preview Not Available</h4>
+                    <p className="text-sm text-slate-500 mb-6">
+                      This file type ({viewingItem.type}) cannot be previewed directly in the browser.
+                    </p>
+                    <button
+                      onClick={() => triggerDownload(viewingItem.url, viewingItem.name)}
+                      className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                    >
+                      Download to View
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+                <button
+                  onClick={() => setViewingItem(null)}
+                  className="px-8 py-2 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-900 transition-all shadow-lg"
+                >
+                  Close Viewer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
