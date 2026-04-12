@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, User, signOut } from "firebase/auth";
 import { auth } from "../firebase";
 import { api } from "../api";
+import { toast } from "sonner";
 
 interface UserProfile {
   id: string;
@@ -84,6 +85,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  // Inactivity Timer (5 minutes)
+  useEffect(() => {
+    if (!user) return;
+
+    let inactivityTimeout: NodeJS.Timeout;
+
+    const logoutUser = async () => {
+      try {
+        await signOut(auth);
+        toast.info("Logged out due to inactivity", {
+          description: "You have been inactive for 5 minutes.",
+          duration: 5000,
+        });
+      } catch (error) {
+        console.error("Error during auto-logout:", error);
+      }
+    };
+
+    const resetTimer = () => {
+      if (inactivityTimeout) clearTimeout(inactivityTimeout);
+      inactivityTimeout = setTimeout(logoutUser, 5 * 60 * 1000); // 5 minutes
+    };
+
+    const activityEvents = [
+      'mousedown', 
+      'mousemove', 
+      'keydown', 
+      'scroll', 
+      'touchstart',
+      'click'
+    ];
+
+    // Initialize timer
+    resetTimer();
+
+    // Add event listeners
+    activityEvents.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    return () => {
+      if (inactivityTimeout) clearTimeout(inactivityTimeout);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [user]);
 
   return (
     <AuthContext.Provider
