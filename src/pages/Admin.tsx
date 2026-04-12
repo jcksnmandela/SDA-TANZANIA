@@ -787,8 +787,6 @@ export default function Admin() {
       document.body.removeChild(link);
       
       addDownload({ name: fileName, type: 'csv', url });
-      
-      toast.success(`${feature.toUpperCase()} CSV report generated!`);
     } catch (error: any) {
       console.error("CSV Generation Error:", error);
       toast.error("Failed to generate CSV");
@@ -834,8 +832,6 @@ export default function Admin() {
       link.click();
 
       addDownload({ name: fileName, type: 'pdf', url });
-      
-      toast.success(`${feature.toUpperCase()} PDF report generated!`);
     } catch (error: any) {
       console.error("PDF Generation Error:", error);
       toast.error("Failed to generate PDF");
@@ -873,8 +869,6 @@ export default function Admin() {
       link.click();
 
       addDownload({ name: fileName, type: 'xlsx', url });
-      
-      toast.success(`${feature.toUpperCase()} Excel report generated!`);
     } catch (error: any) {
       console.error("Excel Generation Error:", error);
       toast.error("Failed to generate Excel");
@@ -945,8 +939,6 @@ export default function Admin() {
       link.click();
 
       addDownload({ name: fileName, type: 'pdf', url });
-      
-      toast.success("Full report generated successfully!");
     } catch (error: any) {
       console.error("Full Report Generation Error:", error);
       toast.error("Failed to generate full report");

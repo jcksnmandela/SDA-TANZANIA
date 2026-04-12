@@ -38,7 +38,6 @@ export default function Announcements() {
       link.click();
       
       addDownload({ name: fileName, type: 'image', url });
-      toast.success("Image download started!");
     } catch (error) {
       console.error("Error downloading image:", error);
       toast.error("Failed to download image");
