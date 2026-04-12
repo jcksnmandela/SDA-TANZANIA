@@ -15,7 +15,16 @@ i18n
           "dark": "Dark",
           "light": "Light",
           "english": "English",
-          "swahili": "Swahili"
+          "swahili": "Swahili",
+          "Home": "Home",
+          "Nearby": "Nearby",
+          "News": "News",
+          "Live": "Live",
+          "Profile": "Profile",
+          "Manage": "Manage",
+          "theme_changed": "Theme changed to {{theme}}",
+          "language_changed": "Language changed to {{language}}",
+          "login_required": "Please login to access this feature"
         }
       },
       sw: {
@@ -26,7 +35,16 @@ i18n
           "dark": "Giza",
           "light": "Nuru",
           "english": "Kiingereza",
-          "swahili": "Kiswahili"
+          "swahili": "Kiswahili",
+          "Home": "Nyumbani",
+          "Nearby": "Karibu",
+          "News": "Habari",
+          "Live": "Mubashara",
+          "Profile": "Wasifu",
+          "Manage": "Simamia",
+          "theme_changed": "Mandhari yamebadilishwa kuwa {{theme}}",
+          "language_changed": "Lugha imebadilishwa kuwa {{language}}",
+          "login_required": "Tafadhali ingia ili kupata huduma hii"
         }
       }
     },

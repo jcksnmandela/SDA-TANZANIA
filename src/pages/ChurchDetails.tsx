@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MapPin, Phone, Clock, Users, Bell, Tv, ArrowLeft, Navigation, Heart, Share2, Loader2, Shield, FileText, FileSpreadsheet, Database, Eye, X, ImageIcon, DollarSign } from "lucide-react";
+import { MapPin, Phone, Clock, Users, Bell, Tv, ArrowLeft, Navigation, Heart, Share2, Loader2, Shield, FileText, FileSpreadsheet, Database, Eye, X, ImageIcon, DollarSign, Download } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { cn, formatDate, getChurchImage } from "../lib/utils";
+import { useDownloads } from "../contexts/DownloadContext";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -35,6 +36,7 @@ interface Minister {
 
 export default function ChurchDetails() {
   const { id } = useParams();
+  const { addDownload } = useDownloads();
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [church, setChurch] = useState<Church | null>(null);
@@ -102,7 +104,18 @@ export default function ChurchDetails() {
       head: [Object.keys(data[0])],
       body: data.map(item => Object.values(item)),
     });
-    doc.save(`${tab}_report.pdf`);
+    
+    const fileName = `${tab}_report_${new Date().getTime()}.pdf`;
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+
+    addDownload({ name: fileName, type: 'pdf', url });
+    toast.success("PDF report generated!");
   };
 
   const exportToExcel = () => {
@@ -113,7 +126,19 @@ export default function ChurchDetails() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, tab);
-    XLSX.writeFile(wb, `${tab}_report.xlsx`);
+    
+    const fileName = `${tab}_report_${new Date().getTime()}.xlsx`;
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const excelBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(excelBlob);
+    
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+
+    addDownload({ name: fileName, type: 'xlsx', url });
+    toast.success("Excel report generated!");
   };
 
   const canViewMembers = profile?.role === "admin" || 
@@ -212,6 +237,26 @@ export default function ChurchDetails() {
     }
   };
 
+  const downloadImage = async (imageUrl: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const fileName = `church_${church?.name.replace(/\s+/g, '_')}_${Date.now()}.jpg`;
+      
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      
+      addDownload({ name: fileName, type: 'image', url });
+      toast.success("Image download started!");
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      toast.error("Failed to download image");
+    }
+  };
+
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-emerald-700" /></div>;
   if (!church) return <div className="p-8 text-center text-slate-500">Church not found.</div>;
 
@@ -252,6 +297,15 @@ export default function ChurchDetails() {
             >
               <Share2 size={20} />
             </button>
+            {church.images && church.images.length > 0 && (
+              <button 
+                onClick={() => downloadImage(church.images[0])}
+                className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-all"
+                title="Download Image"
+              >
+                <Download size={20} />
+              </button>
+            )}
           </div>
           <div className="absolute bottom-4 left-4 right-4 text-white">
             <h2 className="text-2xl md:text-3xl font-bold">{church.name}</h2>

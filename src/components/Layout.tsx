@@ -6,6 +6,7 @@ import { cn } from "../lib/utils";
 import ChangePasswordOverlay from "./ChangePasswordOverlay";
 import ThemeSwitcher from "./ThemeSwitcher";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { DownloadManager } from "./DownloadManager";
 import { useTranslation } from "react-i18next";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   if (isAdmin || isChurchAdmin) {
-    navItems.push({ path: "/admin", icon: Shield, label: "Manage" });
+    navItems.push({ path: "/admin", icon: Shield, label: t("Manage") });
   }
 
   return (
@@ -46,11 +47,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 const isActive = location.pathname === item.path;
                 
                 const handleClick = (e: React.MouseEvent) => {
-                  if (["/nearby", "/announcements", "/live"].includes(item.path) && !profile) {
-                    e.preventDefault();
-                    toast.error("Login to Access the Church");
-                    navigate("/auth");
-                  }
+                if (["/nearby", "/announcements", "/live"].includes(item.path) && !profile) {
+                  e.preventDefault();
+                  toast.error(t("login_required", { defaultValue: "Login to Access the Church" }));
+                  navigate("/auth");
+                }
                 };
 
                 return (
@@ -124,6 +125,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+      <DownloadManager />
     </div>
   );
 }

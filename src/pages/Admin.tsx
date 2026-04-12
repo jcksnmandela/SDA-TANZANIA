@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, Trash2, Church as ChurchIcon, Users, Bell, Tv, MapPin, Image as ImageIcon, Loader2, Database, Lock, Search, FileText, FileSpreadsheet, Printer, ChevronDown, Eye, DollarSign } from "lucide-react";
 import { cn, formatDate } from "../lib/utils";
+import { useDownloads } from "../contexts/DownloadContext";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -16,6 +17,7 @@ import firebaseConfig from "../../firebase-applet-config.json";
 
 export default function Admin() {
   const { profile, isAdmin, isChurchAdmin, isTreasurer, loading: authLoading } = useAuth();
+  const { addDownload } = useDownloads();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"churches" | "users" | "members" | "services" | "ministers" | "announcements" | "livestreams" | "settings" | "accounts">("churches");
@@ -66,7 +68,7 @@ export default function Admin() {
   });
 
   const [announcementForm, setAnnouncementForm] = useState({
-    id: "", title: "", description: "", date: "", imageUrl: "", churchId: ""
+    id: "", title: "", description: "", date: "", imageUrl: "", churchId: "", category: "News"
   });
 
   const [livestreamForm, setLivestreamForm] = useState({
@@ -602,7 +604,7 @@ export default function Admin() {
         setAnnouncements([{ id: result.id, ...rest }, ...announcements]);
         toast.success("Announcement added");
       }
-      setAnnouncementForm({ id: "", title: "", description: "", date: "", imageUrl: "", churchId: "" });
+      setAnnouncementForm({ id: "", title: "", description: "", date: "", imageUrl: "", churchId: "", category: "News" });
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -707,25 +709,26 @@ export default function Admin() {
 
   const getTableHeaders = (feature: string) => {
     switch (feature) {
-      case "members": return ["Name", "Phone", "Status", "Date Added"];
-      case "users": return ["Name", "Email", "Role", "Date Added"];
-      case "ministers": return ["Name", "Role", "Contact", "Date Added"];
-      case "services": return ["Name", "Schedule", "Description", "Date Added"];
-      case "announcements": return ["Title", "Date", "Category", "Date Added"];
-      case "livestreams": return ["URL", "Status", "Date Added"];
+      case "members": return ["Name", "Phone", "Status", "Church", "Date Added"];
+      case "users": return ["Name", "Email", "Role", "Church", "Date Added"];
+      case "ministers": return ["Name", "Role", "Contact", "Church", "Date Added"];
+      case "services": return ["Name", "Schedule", "Description", "Church", "Date Added"];
+      case "announcements": return ["Title", "Date", "Category", "Church", "Date Added"];
+      case "livestreams": return ["URL", "Status", "Church", "Date Added"];
       case "churches": return ["Name", "Region", "District", "Address"];
       default: return [];
     }
   };
 
   const getTableCells = (feature: string, item: any) => {
+    const churchName = churches.find(c => c.id === item.churchId)?.name || "N/A";
     switch (feature) {
-      case "members": return [item.fullName, item.phone || "N/A", item.status, formatDate(item.createdAt)];
-      case "users": return [item.fullName, item.email, item.role.replace('_', ' '), formatDate(item.createdAt)];
-      case "ministers": return [item.name, item.role, item.contact || "N/A", formatDate(item.createdAt)];
-      case "services": return [item.name, item.schedule, item.description || "N/A", formatDate(item.createdAt)];
-      case "announcements": return [item.title, formatDate(item.date), item.category || "News", formatDate(item.createdAt)];
-      case "livestreams": return [item.url, item.status, formatDate(item.createdAt)];
+      case "members": return [item.fullName, item.phone || "N/A", item.status, churchName, formatDate(item.createdAt)];
+      case "users": return [item.fullName, item.email, item.role.replace('_', ' '), churchName, formatDate(item.createdAt)];
+      case "ministers": return [item.name, item.role, item.contact || "N/A", churchName, formatDate(item.createdAt)];
+      case "services": return [item.name, item.schedule, item.description || "N/A", churchName, formatDate(item.createdAt)];
+      case "announcements": return [item.title, formatDate(item.date), item.category || "News", churchName, formatDate(item.createdAt)];
+      case "livestreams": return [item.url, item.status, churchName, formatDate(item.createdAt)];
       case "churches": return [item.name, item.region, item.district, item.address];
       default: return [];
     }
@@ -759,17 +762,37 @@ export default function Admin() {
       toast.error("No data to export");
       return;
     }
-    const headers = getTableHeaders(feature).join(",");
-    const rows = data.map(item => getTableCells(feature, item).join(",")).join("\n");
-    const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows}`;
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${feature}_report_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("CSV report generated successfully");
+    try {
+      const headers = getTableHeaders(feature);
+      const rows = data.map(item => {
+        return getTableCells(feature, item).map(cell => {
+          const cellStr = String(cell || "");
+          if (cellStr.includes(",") || cellStr.includes("\n") || cellStr.includes('"')) {
+            return `"${cellStr.replace(/"/g, '""')}"`;
+          }
+          return cellStr;
+        }).join(",");
+      });
+      
+      const csvContent = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const fileName = `${feature}_report_${new Date().getTime()}.csv`;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      addDownload({ name: fileName, type: 'csv', url });
+      
+      toast.success(`${feature.toUpperCase()} CSV report generated!`);
+    } catch (error: any) {
+      console.error("CSV Generation Error:", error);
+      toast.error("Failed to generate CSV");
+    }
   };
 
   const generatePDF = (feature: string, data: any[]) => {
@@ -777,27 +800,46 @@ export default function Admin() {
       toast.error("No data to export");
       return;
     }
-    const doc = new jsPDF();
-    const churchName = churches.find(c => c.id === selectedChurchId)?.name || "Church";
-    
-    doc.setFontSize(18);
-    doc.text(`${churchName} - ${feature.toUpperCase()} REPORT`, 14, 20);
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
+    try {
+      const doc = new jsPDF();
+      const currentChurchId = selectedChurchId || selectedChurchFilter || (isChurchAdmin ? profile?.churchId : null);
+      const churchName = churches.find(c => c.id === currentChurchId)?.name || (isChurchAdmin ? churches[0]?.name : "System Wide");
+      
+      doc.setFontSize(18);
+      doc.setTextColor(5, 150, 105);
+      doc.text(`${churchName} - ${feature.toUpperCase()} REPORT`, 14, 20);
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
 
-    const headers = [getTableHeaders(feature)];
-    const rows = data.map(item => getTableCells(feature, item));
+      const headers = [getTableHeaders(feature)];
+      const rows = data.map(item => getTableCells(feature, item));
 
-    autoTable(doc, {
-      head: headers,
-      body: rows,
-      startY: 35,
-      theme: 'grid',
-      headStyles: { fillColor: [5, 150, 105] }, // emerald-600
-    });
+      autoTable(doc, {
+        head: headers,
+        body: rows,
+        startY: 35,
+        theme: 'grid',
+        headStyles: { fillColor: [5, 150, 105] },
+        styles: { fontSize: 8 },
+      });
 
-    doc.save(`${feature}_report_${new Date().toISOString().split('T')[0]}.pdf`);
-    toast.success("PDF report generated successfully");
+      const fileName = `${feature}_report_${new Date().getTime()}.pdf`;
+      const pdfBlob = doc.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+
+      addDownload({ name: fileName, type: 'pdf', url });
+      
+      toast.success(`${feature.toUpperCase()} PDF report generated!`);
+    } catch (error: any) {
+      console.error("PDF Generation Error:", error);
+      toast.error("Failed to generate PDF");
+    }
   };
 
   const generateExcel = (feature: string, data: any[]) => {
@@ -805,102 +847,112 @@ export default function Admin() {
       toast.error("No data to export");
       return;
     }
-    const headers = getTableHeaders(feature);
-    const rows = data.map(item => getTableCells(feature, item));
-    
-    const worksheetData = [headers, ...rows];
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, feature);
-    
-    XLSX.writeFile(workbook, `${feature}_report_${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success("Excel report generated successfully");
-  };
-
-  const generateFullReport = () => {
-    if (!isAdmin) return;
-    const doc = new jsPDF();
-    let yPos = 20;
-
-    doc.setFontSize(22);
-    doc.setTextColor(5, 150, 105);
-    doc.text("SDA TANZANIA - FULL SYSTEM REPORT", 14, yPos);
-    yPos += 10;
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, yPos);
-    yPos += 15;
-
-    const s = searchTerm.toLowerCase();
-    const sections = [
-      { 
-        title: "CHURCHES", 
-        data: churches.filter(c => c.name.toLowerCase().includes(s) || (c as any).region.toLowerCase().includes(s) || (c as any).district.toLowerCase().includes(s)), 
-        headers: ["Name", "Region", "District", "Address"], 
-        cells: (item: any) => [item.name, item.region, item.district, item.address] 
-      },
-      { 
-        title: "USERS", 
-        data: users.filter(u => u.fullName.toLowerCase().includes(s) || u.email.toLowerCase().includes(s) || u.role.toLowerCase().includes(s)), 
-        headers: ["Name", "Email", "Role"], 
-        cells: (item: any) => [item.fullName, item.email, item.role.replace('_', ' ')] 
-      },
-      { 
-        title: "MEMBERS", 
-        data: members.filter(m => m.fullName.toLowerCase().includes(s) || (m.email && m.email.toLowerCase().includes(s)) || (m.phone && m.phone.toLowerCase().includes(s))), 
-        headers: ["Name", "Phone", "Status", "Church"], 
-        cells: (item: any) => [item.fullName, item.phone || "N/A", item.status, churches.find(c => c.id === item.churchId)?.name || "N/A"] 
-      },
-      { 
-        title: "MINISTERS", 
-        data: ministers.filter(m => m.name.toLowerCase().includes(s) || m.role.toLowerCase().includes(s)), 
-        headers: ["Name", "Role", "Church"], 
-        cells: (item: any) => [item.name, item.role, churches.find(c => c.id === item.churchId)?.name || "N/A"] 
-      },
-      { 
-        title: "SERVICES", 
-        data: services.filter(s_item => s_item.name.toLowerCase().includes(s) || s_item.schedule.toLowerCase().includes(s)), 
-        headers: ["Name", "Schedule", "Church"], 
-        cells: (item: any) => [item.name, item.schedule, churches.find(c => c.id === item.churchId)?.name || "N/A"] 
-      },
-      { 
-        title: "NEWS/ANNOUNCEMENTS", 
-        data: announcements.filter(a => a.title.toLowerCase().includes(s) || a.description.toLowerCase().includes(s)), 
-        headers: ["Title", "Date", "Church"], 
-        cells: (item: any) => [item.title, formatDate(item.date), churches.find(c => c.id === item.churchId)?.name || "N/A"] 
-      },
-      { 
-        title: "LIVESTREAMS", 
-        data: livestreams.filter(ls => ls.url.toLowerCase().includes(s) || ls.status.toLowerCase().includes(s)), 
-        headers: ["URL", "Status", "Church"], 
-        cells: (item: any) => [item.url, item.status, churches.find(c => c.id === item.churchId)?.name || "N/A"] 
-      },
-    ];
-
-    sections.forEach((section, index) => {
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
-      }
-      doc.setFontSize(14);
-      doc.setTextColor(30, 41, 59);
-      doc.text(section.title, 14, yPos);
-      yPos += 5;
-
-      autoTable(doc, {
-        head: [section.headers],
-        body: section.data.map(section.cells),
-        startY: yPos,
-        theme: 'grid',
-        headStyles: { fillColor: [5, 150, 105] },
-        margin: { top: 20 },
+    try {
+      const headers = getTableHeaders(feature);
+      const rows = data.map(item => {
+        const cells = getTableCells(feature, item);
+        const rowObj: any = {};
+        headers.forEach((header, index) => {
+          rowObj[header] = cells[index];
+        });
+        return rowObj;
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
-    });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, feature.toUpperCase());
+      
+      const fileName = `${feature}_report_${new Date().getTime()}.xlsx`;
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const excelBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(excelBlob);
+      
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
 
-    doc.save(`full_system_report_${new Date().toISOString().split('T')[0]}.pdf`);
-    toast.success("Full system report generated successfully");
+      addDownload({ name: fileName, type: 'xlsx', url });
+      
+      toast.success(`${feature.toUpperCase()} Excel report generated!`);
+    } catch (error: any) {
+      console.error("Excel Generation Error:", error);
+      toast.error("Failed to generate Excel");
+    }
+  };
+
+  const generateFullReport = async () => {
+    setLoading(true);
+    try {
+      const doc = new jsPDF();
+      const reportDate = new Date().toLocaleString();
+      const currentChurchId = isAdmin ? null : profile?.churchId;
+      const churchName = isAdmin ? "System Wide" : (churches.find(c => c.id === currentChurchId)?.name || "Church");
+      
+      doc.setFontSize(22);
+      doc.setTextColor(5, 150, 105);
+      doc.text(`${churchName.toUpperCase()} - FULL REPORT`, 14, 20);
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${reportDate}`, 14, 28);
+      doc.text(`Administrator: ${profile?.name || "System"}`, 14, 33);
+
+      let yPos = 45;
+
+      const sections = [
+        { title: "CHURCHES", feature: "churches", data: isAdmin ? churches : churches.filter(c => c.id === currentChurchId) },
+        { title: "USERS", feature: "users", data: users },
+        { title: "MEMBERS", feature: "members", data: members },
+        { title: "MINISTERS", feature: "ministers", data: ministers },
+        { title: "SERVICES", feature: "services", data: services },
+        { title: "NEWS & ANNOUNCEMENTS", feature: "announcements", data: announcements },
+        { title: "LIVE STREAMS", feature: "livestreams", data: livestreams }
+      ];
+
+      for (const section of sections) {
+        if (section.data.length > 0) {
+          if (yPos > 250) {
+            doc.addPage();
+            yPos = 20;
+          }
+
+          doc.setFontSize(14);
+          doc.setTextColor(30, 41, 59);
+          doc.text(section.title, 14, yPos);
+          yPos += 5;
+
+          autoTable(doc, {
+            head: [getTableHeaders(section.feature)],
+            body: section.data.map(item => getTableCells(section.feature, item)),
+            startY: yPos,
+            theme: 'grid',
+            headStyles: { fillColor: [5, 150, 105] },
+            styles: { fontSize: 8 },
+            margin: { top: 20 }
+          });
+
+          yPos = (doc as any).lastAutoTable.finalY + 15;
+        }
+      }
+
+      const fileName = `Full_Report_${new Date().getTime()}.pdf`;
+      const pdfBlob = doc.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+
+      addDownload({ name: fileName, type: 'pdf', url });
+      
+      toast.success("Full report generated successfully!");
+    } catch (error: any) {
+      console.error("Full Report Generation Error:", error);
+      toast.error("Failed to generate full report");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (authLoading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
@@ -923,12 +975,12 @@ export default function Admin() {
               <ChurchIcon size={16} /> Church Dashboard
             </button>
           )}
-          {isAdmin && (
+          {(isAdmin || isChurchAdmin) && (
             <button
               onClick={generateFullReport}
               className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold shadow-lg shadow-emerald-900/20"
             >
-              <FileText size={16} /> Full System Report
+              <FileText size={16} /> {isAdmin ? "Full System Report" : "Church Report"}
             </button>
           )}
           {isAdmin && (
@@ -1616,6 +1668,15 @@ export default function Admin() {
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-lg text-slate-800">Church Ministers</h3>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const filtered = getFilteredData("ministers", ministers);
+                      generateCSV("ministers", filtered);
+                    }}
+                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
+                  >
+                    <Database size={16} /> CSV
+                  </button>
                    <button 
                     onClick={() => {
                       const filtered = getFilteredData("ministers", ministers);
@@ -1623,7 +1684,7 @@ export default function Admin() {
                     }}
                     className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
                   >
-                    <FileText size={16} /> PDF Report
+                    <FileText size={16} /> PDF
                   </button>
                   <button 
                     onClick={() => {
@@ -1632,7 +1693,7 @@ export default function Admin() {
                     }}
                     className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
                   >
-                    <FileSpreadsheet size={16} /> Excel Report
+                    <FileSpreadsheet size={16} /> Excel
                   </button>
                 </div>
               </div>
@@ -1732,6 +1793,15 @@ export default function Admin() {
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-lg text-slate-800">Church Services</h3>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const filtered = getFilteredData("services", services);
+                      generateCSV("services", filtered);
+                    }}
+                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
+                  >
+                    <Database size={16} /> CSV
+                  </button>
                    <button 
                     onClick={() => {
                       const filtered = getFilteredData("services", services);
@@ -1739,7 +1809,7 @@ export default function Admin() {
                     }}
                     className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
                   >
-                    <FileText size={16} /> PDF Report
+                    <FileText size={16} /> PDF
                   </button>
                   <button 
                     onClick={() => {
@@ -1748,7 +1818,7 @@ export default function Admin() {
                     }}
                     className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
                   >
-                    <FileSpreadsheet size={16} /> Excel Report
+                    <FileSpreadsheet size={16} /> Excel
                   </button>
                 </div>
               </div>
@@ -1820,6 +1890,16 @@ export default function Admin() {
                   value={announcementForm.description}
                   onChange={e => setAnnouncementForm({ ...announcementForm, description: e.target.value })}
                 />
+                <select
+                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+                  value={announcementForm.category}
+                  onChange={e => setAnnouncementForm({ ...announcementForm, category: e.target.value })}
+                >
+                  <option value="News">News</option>
+                  <option value="Announcement">Announcement</option>
+                  <option value="Event">Event</option>
+                  <option value="Sermon">Sermon</option>
+                </select>
                 {(isAdmin || !profile?.churchId) && (
                   <select
                     className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
@@ -1837,7 +1917,7 @@ export default function Admin() {
                   {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : announcementForm.id ? "Update News" : "Add News"}
                 </button>
                 {announcementForm.id && (
-                  <button type="button" onClick={() => setAnnouncementForm({ id: "", title: "", description: "", date: "", imageUrl: "", churchId: "" })} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">
+                  <button type="button" onClick={() => setAnnouncementForm({ id: "", title: "", description: "", date: "", imageUrl: "", churchId: "", category: "News" })} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">
                     Cancel
                   </button>
                 )}
@@ -1847,6 +1927,15 @@ export default function Admin() {
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-lg text-slate-800">Church News</h3>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const filtered = getFilteredData("announcements", announcements);
+                      generateCSV("announcements", filtered);
+                    }}
+                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
+                  >
+                    <Database size={16} /> CSV
+                  </button>
                    <button 
                     onClick={() => {
                       const filtered = getFilteredData("announcements", announcements);
@@ -1854,7 +1943,7 @@ export default function Admin() {
                     }}
                     className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
                   >
-                    <FileText size={16} /> PDF Report
+                    <FileText size={16} /> PDF
                   </button>
                   <button 
                     onClick={() => {
@@ -1863,7 +1952,7 @@ export default function Admin() {
                     }}
                     className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
                   >
-                    <FileSpreadsheet size={16} /> Excel Report
+                    <FileSpreadsheet size={16} /> Excel
                   </button>
                 </div>
               </div>
@@ -1956,6 +2045,15 @@ export default function Admin() {
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-lg text-slate-800">Live Streams</h3>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const filtered = getFilteredData("livestreams", livestreams);
+                      generateCSV("livestreams", filtered);
+                    }}
+                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
+                  >
+                    <Database size={16} /> CSV
+                  </button>
                    <button 
                     onClick={() => {
                       const filtered = getFilteredData("livestreams", livestreams);
@@ -1963,7 +2061,7 @@ export default function Admin() {
                     }}
                     className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
                   >
-                    <FileText size={16} /> PDF Report
+                    <FileText size={16} /> PDF
                   </button>
                   <button 
                     onClick={() => {
@@ -1972,7 +2070,7 @@ export default function Admin() {
                     }}
                     className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center gap-2 text-xs font-bold"
                   >
-                    <FileSpreadsheet size={16} /> Excel Report
+                    <FileSpreadsheet size={16} /> Excel
                   </button>
                 </div>
               </div>

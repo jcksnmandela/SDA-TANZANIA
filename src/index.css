@@ -1,6 +1,53 @@
 @import "tailwindcss";
 
+@theme {
+  --color-dark-bg: #0f172a;
+  --color-dark-card: #1e293b;
+  --color-dark-text: #f1f5f9;
+  --color-dark-border: #334155;
+}
+
 @layer base {
+  html {
+    @apply transition-colors duration-300;
+  }
+  
+  body {
+    @apply bg-slate-50 text-slate-900 transition-colors duration-300;
+  }
+
+  .dark body {
+    @apply bg-gray-900 text-slate-100;
+  }
+
+  .dark .bg-white {
+    @apply bg-gray-800;
+  }
+
+  .dark .text-slate-800, .dark .text-slate-900 {
+    @apply text-white;
+  }
+
+  .dark .text-slate-600, .dark .text-slate-500 {
+    @apply text-slate-300;
+  }
+
+  .dark .border-slate-100, .dark .border-slate-200 {
+    @apply border-gray-700;
+  }
+
+  .dark input, .dark select, .dark textarea {
+    @apply bg-gray-800 border-gray-700 text-white;
+  }
+
+  .dark .bg-slate-50 {
+    @apply bg-gray-900;
+  }
+
+  .dark .bg-slate-100 {
+    @apply bg-gray-700;
+  }
+
   a, button, [role="button"], .cursor-pointer {
     cursor: pointer;
   }

@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Bell, Calendar, MapPin, Loader2, ChevronRight } from "lucide-react";
+import { Bell, Calendar, MapPin, Loader2, ChevronRight, Download } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import { api } from "../api";
 import { useAuth } from "../hooks/useAuth";
+import { useDownloads } from "../contexts/DownloadContext";
 
 interface Announcement {
   id: string;
@@ -22,6 +23,27 @@ export default function Announcements() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { addDownload } = useDownloads();
+
+  const downloadImage = async (imageUrl: string, title: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const fileName = `news_${title.replace(/\s+/g, '_')}_${Date.now()}.jpg`;
+      
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      
+      addDownload({ name: fileName, type: 'image', url });
+      toast.success("Image download started!");
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      toast.error("Failed to download image");
+    }
+  };
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
@@ -69,12 +91,24 @@ export default function Announcements() {
               className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-all"
             >
               {announcement.imageUrl && (
-                <img
-                  src={announcement.imageUrl}
-                  alt={announcement.title}
-                  className="w-full h-48 object-cover"
-                  referrerPolicy="no-referrer"
-                />
+                <div className="relative group/img">
+                  <img
+                    src={announcement.imageUrl}
+                    alt={announcement.title}
+                    className="w-full h-48 object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadImage(announcement.imageUrl!, announcement.title);
+                    }}
+                    className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-black/70"
+                    title="Download Image"
+                  >
+                    <Download size={16} />
+                  </button>
+                </div>
               )}
               <div className="p-5 space-y-3">
                 <div className="flex items-center justify-between">
