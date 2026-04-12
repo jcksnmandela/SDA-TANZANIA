@@ -21,8 +21,14 @@ export const DownloadManager: React.FC = () => {
     }
   };
 
-  const handleOpen = (url: string) => {
-    window.open(url, '_blank');
+  const handleOpen = (url: string, name: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (downloads.length === 0 && !isOpen) return null;
@@ -84,13 +90,14 @@ export const DownloadManager: React.FC = () => {
                 downloads.map((download) => (
                   <div
                     key={download.id}
-                    className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-emerald-200 transition-all group"
+                    onClick={() => handleOpen(download.url, download.name)}
+                    className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all group cursor-pointer"
                   >
-                    <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <div className="p-2 bg-white rounded-lg shadow-sm group-hover:scale-110 transition-transform">
                       {getIcon(download.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate" title={download.name}>
+                      <p className="text-sm font-bold text-slate-700 truncate group-hover:text-emerald-700 transition-colors" title={download.name}>
                         {download.name}
                       </p>
                       <p className="text-[10px] text-slate-400">
@@ -99,15 +106,21 @@ export const DownloadManager: React.FC = () => {
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={() => handleOpen(download.url)}
-                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                        title="Open"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpen(download.url, download.name);
+                        }}
+                        className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
+                        title="Open/View"
                       >
                         <ExternalLink size={14} />
                       </button>
                       <button
-                        onClick={() => removeDownload(download.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeDownload(download.id);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-lg transition-colors"
                         title="Remove"
                       >
                         <Trash2 size={14} />
