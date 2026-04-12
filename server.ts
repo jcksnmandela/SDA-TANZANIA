@@ -29,7 +29,12 @@ async function startServer() {
   });
 
   if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "preview") {
-    const distPath = path.resolve(__dirname, "dist");
+    // When compiled to dist/server.cjs, __dirname is the dist folder.
+    // When running as server.ts, __dirname is the root and we need to look in dist.
+    const distPath = fs.existsSync(path.join(__dirname, "index.html")) 
+      ? __dirname 
+      : path.resolve(__dirname, "dist");
+    
     console.log(`[Production] Serving static files from: ${distPath}`);
 
     if (!fs.existsSync(distPath)) {
