@@ -1,5 +1,5 @@
 {
-  "name": "SDA Tanzania Churches Locator",
-  "description": "Discover SDA churches across Tanzania, locate nearby churches, view services, read announcements, and watch live services.",
+  "name": "SDA Tanzania CMS & Tracker",
+  "description": "Unified Church Management System for the Seventh-day Adventist Church in Tanzania. Features include Church Locator, Member Tracking, Financial Management (Treasurer), and Audit Trials.",
   "requestFramePermissions": ["geolocation"]
 }

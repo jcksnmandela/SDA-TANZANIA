@@ -9,7 +9,7 @@
         "fullName": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "favorites": { "type": "array", "items": { "type": "string" } },
-        "role": { "type": "string", "enum": ["admin", "church_admin", "church_end_user", "online_user"] },
+        "role": { "type": "string", "enum": ["admin", "church_admin", "church_end_user", "online_user", "treasurer"] },
         "churchId": { "type": "string" }
       },
       "required": ["uid", "fullName", "email", "role"]
@@ -128,9 +128,64 @@
       "type": "object",
       "properties": {
         "maintenanceMode": { "type": "boolean" },
-        "publicSignups": { "type": "boolean" }
+        "publicSignups": { "type": "boolean" },
+        "systemLogo": { "type": "string" }
       },
       "required": ["maintenanceMode", "publicSignups"]
+    },
+    "ExpenseCategory": {
+      "title": "ExpenseCategory",
+      "description": "Categories for church expenses",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["churchId", "name"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Church expense records",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["churchId", "categoryId", "accountId", "amount", "date"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "Church funding source account",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Cash", "Bank", "Mobile Money"] },
+        "balance": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["churchId", "name", "type"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System activity logs",
+      "type": "object",
+      "properties": {
+        "churchId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "entity": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "action", "timestamp"]
     }
   },
   "firestore": {
@@ -143,6 +198,10 @@
     "/members/{memberId}": { "schema": "Member", "description": "Church members directory" },
     "/offering_categories/{categoryId}": { "schema": "OfferingCategory", "description": "Offering categories" },
     "/offerings/{offeringId}": { "schema": "Offering", "description": "Offering records" },
+    "/expense_categories/{categoryId}": { "schema": "ExpenseCategory", "description": "Expense categories" },
+    "/expenses/{expenseId}": { "schema": "Expense", "description": "Expense records" },
+    "/accounts/{accountId}": { "schema": "Account", "description": "Church accounts" },
+    "/audit_logs/{logId}": { "schema": "AuditLog", "description": "System audit logs" },
     "/config/global": { "schema": "AppConfig", "description": "Global settings" }
   }
 }

@@ -1,82 +1,169 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    // 0. Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers (The Eight Pillars) ---
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isAdmin() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    function isChurchAdmin(churchId) {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'church_admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.churchId == churchId;
+
+    function isEmailVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
     }
 
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role helpers using synchronous doc lookups
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      // Hardcoded fallback for the primary admin to ensure bootstrap works even if doc is slightly delayed
+      return isAuthenticated() && (
+        getUserData().role == 'admin' || 
+        (request.auth.token.email_verified == true && (
+          request.auth.token.email == 'jcksnmandela@gmail.com' ||
+          request.auth.token.email == 'admin@sda.tz'
+        ))
+      );
+    }
+
+    function isChurchAdmin(churchId) {
+      return isAuthenticated() && (
+        isAdmin() || 
+        (getUserData().role == 'church_admin' && getUserData().churchId == churchId)
+      );
+    }
+
+    function isTreasurer(churchId) {
+      return isAuthenticated() && (
+        isAdmin() || 
+        (getUserData().role == 'treasurer' && getUserData().churchId == churchId)
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.uid is string && data.fullName is string && 
+             data.email is string && data.role in ['admin', 'church_admin', 'church_end_user', 'online_user', 'treasurer'];
+    }
+
+    function isValidAuditLog(data) {
+      return data.userId is string && data.userName is string && data.action is string && 
+             data.timestamp is string && data.entity is string;
+    }
+
+    // --- Collection Routes ---
+
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isAdmin() || request.auth.uid == userId || (resource != null && isChurchAdmin(resource.data.churchId)));
-      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isChurchAdmin(request.resource.data.churchId));
-      allow update: if isAuthenticated() && (isAdmin() || request.auth.uid == userId);
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || (resource != null && isChurchAdmin(resource.data.churchId)));
+      allow create: if isAuthenticated() && (isOwner(userId) || isAdmin() || isChurchAdmin(incoming().churchId));
+      allow update: if isAuthenticated() && (isAdmin() || (isOwner(userId) && !incoming().diff(existing()).affectedKeys().hasAny(['role'])));
       allow delete: if isAdmin();
     }
-    
+
     match /churches/{churchId} {
+      // Churches are public for reading
       allow list: if true;
-      allow get: if isAuthenticated();
+      allow get: if true;
+      // Only Super Admins can manage churches
       allow write: if isAdmin();
     }
-    
+
     match /services/{serviceId} {
       allow list: if true;
-      allow get: if isAuthenticated();
-      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
-      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow get: if true;
+      allow create: if isChurchAdmin(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId);
     }
 
     match /ministers/{ministerId} {
       allow list: if true;
-      allow get: if isAuthenticated();
-      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
-      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow get: if true;
+      allow create: if isChurchAdmin(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId);
     }
 
     match /announcements/{announcementId} {
       allow list: if true;
-      allow get: if isAuthenticated();
-      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
-      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow get: if true;
+      allow create: if isChurchAdmin(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId);
     }
 
     match /livestreams/{livestreamId} {
       allow list: if true;
-      allow get: if isAuthenticated();
-      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId);
-      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId);
+      allow get: if true;
+      allow create: if isChurchAdmin(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId);
     }
 
     match /members/{memberId} {
-      allow read: if isAuthenticated() && (isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId));
-      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId) || isTreasurer(request.resource.data.churchId);
-      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow read: if isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow create: if isChurchAdmin(incoming().churchId) || isTreasurer(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId) || isTreasurer(existing().churchId);
     }
 
     match /offering_categories/{categoryId} {
-      allow read: if isAuthenticated() && (isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId));
-      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId) || isTreasurer(request.resource.data.churchId);
-      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow read: if isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow create: if isChurchAdmin(incoming().churchId) || isTreasurer(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId) || isTreasurer(existing().churchId);
     }
 
     match /offerings/{offeringId} {
-      allow read: if isAuthenticated() && (isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId));
-      allow create: if isAdmin() || isChurchAdmin(request.resource.data.churchId) || isTreasurer(request.resource.data.churchId);
-      allow update, delete: if isAdmin() || isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow read: if isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow create: if isChurchAdmin(incoming().churchId) || isTreasurer(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId) || isTreasurer(existing().churchId);
     }
-    
-    function isTreasurer(churchId) {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'treasurer' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.churchId == churchId;
+
+    match /expense_categories/{categoryId} {
+      allow read: if isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow create: if isChurchAdmin(incoming().churchId) || isTreasurer(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId) || isTreasurer(existing().churchId);
     }
-    
+
+    match /expenses/{expenseId} {
+      allow read: if isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow create: if isChurchAdmin(incoming().churchId) || isTreasurer(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId) || isTreasurer(existing().churchId);
+    }
+
+    match /accounts/{accountId} {
+      allow read: if isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      allow create: if isChurchAdmin(incoming().churchId) || isTreasurer(incoming().churchId);
+      allow update, delete: if isChurchAdmin(existing().churchId) || isTreasurer(existing().churchId);
+    }
+
+    match /audit_logs/{logId} {
+      // List/Read audit logs
+      allow read: if isChurchAdmin(resource.data.churchId) || isTreasurer(resource.data.churchId);
+      // Create is allowed for any authenticated user performing an action
+      allow create: if isAuthenticated() && isValidAuditLog(incoming());
+      // No updates or deletes allowed for audit trail integrity
+      allow update, delete: if false;
+    }
+
     match /config/{configId} {
       allow read: if true;
       allow write: if isAdmin();
